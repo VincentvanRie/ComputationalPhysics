@@ -71,7 +71,7 @@ class System_of_particles:
                 force["z"] + current_force["z"]
             ) * h / (2 * m)
 
-        if time > 500 * h:
+        if time < 500 * h:
             velocities = np.sqrt(self.velocities["x"] ** 2 + self.velocities["y"] ** 2)
             if z_dimension:
                 velocities = np.sqrt(
