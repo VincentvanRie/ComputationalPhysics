@@ -199,21 +199,6 @@ def main():
         )
         plt.pause(0.05)
 
-    x = [positions_over_time[i]["x"][0] for i in range(len(positions_over_time))]
-    y = [positions_over_time[i]["y"][0] for i in range(len(positions_over_time))]
-    v = [velocities_over_time[i]["x"][0] for i in range(len(velocities_over_time))]
-    for i in range(N):
-        if positions_over_time[0]["x"][i] != positions_over_time[-1]["x"][i]:
-            print("Not equal")
-    plt.figure()
-    plt.xlim(0, L)
-    # plt.ylim(0, L)
-    plt.plot(
-        np.arange(0, len(positions_over_time)),
-        y,
-    )
-    plt.show()
-    quit()
     plt.show()
     plt.figure()
     plt.xlim(0, L)
