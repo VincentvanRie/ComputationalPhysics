@@ -1,11 +1,8 @@
 import math
 import random
 import matplotlib.pyplot as plt
-import pandas as pd
-from matplotlib.animation import FuncAnimation
-from functools import partial
 import numpy as np
-import copy
+
 
 # class Box:
 #     def __init__(self, L, N):
@@ -25,7 +22,7 @@ N = 18
 L = 2 # in units of sigma
 
 h = 0.0001
-reps = 100
+reps = 500
 m=1
 
 
@@ -67,14 +64,13 @@ class System_of_particles:
                 
                 
                     E_potential = np.append(E_potential,E_pot)
-                    print(E_pot)
+                    #print(E_pot)
             total_i= np.sum(potential_i)
             E_potential = np.append(E_potential,total_i)
             
         total_potential = np.sum(E_potential)
         return total_potential/2
     
-
 
 def initial_setup(): #function to define the initial setup returns the position and velocity dictionary
     '''
@@ -84,6 +80,7 @@ def initial_setup(): #function to define the initial setup returns the position 
     '''
 
     x1 = np.array([0, 1 / 3 * L, 2 / 3 * L] * 3)
+    print(x1)
     y1 = np.array([0] * 3 + [1 / 3 * L] * 3 + [2 / 3 * L] * 3)
 
     x2 = x1 + np.repeat(1 / 6 * L, 9)
@@ -97,8 +94,8 @@ def initial_setup(): #function to define the initial setup returns the position 
     angles_in_vel = np.array([random.uniform(-np.pi, np.pi) for _ in range(N)])
     
     
-    starting_velocity = {"x": np.array([np.cos(i) for i in angles_in_vel]),
-                         "y": np.array([np.sin(i) for i in angles_in_vel])} # nog aanpassen vincent code #TODO
+    starting_velocity = {"x": 10*np.array([np.cos(i) for i in angles_in_vel]),
+                         "y": 10*np.array([np.sin(i) for i in angles_in_vel])} # nog aanpassen vincent code #TODO
     return starting_position, starting_velocity
 
 def ljpot_til(r): #Lennard jones potential for the dimensionless units
@@ -248,15 +245,13 @@ def main():
             E_kin = np.append(E_kin, system.Ek())
             E_pot = np.append(E_pot, system.Ep())
             #print(system.Ek())
-    print(E_pot)
+    #print(E_pot)
     
     E_tot = E_kin + E_pot
     
-    plt.scatter(np.arange(reps-1),E_kin,label = 'kinetic')
-
-    
-    plt.scatter(np.arange(reps-1),E_pot, label = 'potential')
-    plt.scatter(np.arange(reps-1),E_tot, label = 'total')
+    plt.scatter(np.arange(reps-1),E_kin,label = 'kinetic',s=1)
+    plt.scatter(np.arange(reps-1),E_pot, label = 'potential',s=1)
+    plt.scatter(np.arange(reps-1),E_tot, label = 'total',s=1)
     plt.title('Energies of the system')
     plt.legend()
     plt.xlabel('x position in (\u03C3)')
@@ -266,10 +261,74 @@ def main():
 if __name__ == "__main__":
     main()
 
-#%% code to test stuff
+#%% make fcc lattice 
+import numpy as np
+import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
 
-x = np.array([1,3,4])
-y = np.array([2,4,1])
-print(np.sqrt(x**2 + y**2))
+def fcc_lattice(a):
+    # Define the positions of particles in a single FCC unit cell
+    ground_layer = np.array([[0, 0, 0], [a, 0, 0], [0, a, 0], [a, a, 0], [a/2, a/2, 0]])
+    middle_layer = np.array([[a/2, 0, a/2], [0, a/2, a/2], [a, a/2, a/2], [a/2, a, a/2]])
+    upper_layer = np.array([[0, 0, a], [a, 0, a], [0, a, a], [a, a, a], [a/2, a/2, a]])
+
+    # Combine ground and upper layers to get the complete FCC lattice
+    positions = {
+        'x': np.concatenate((ground_layer[:, 0], middle_layer[:,0], upper_layer[:, 0])),
+        'y': np.concatenate((ground_layer[:, 1],middle_layer[:,1], upper_layer[:, 1])),
+        'z': np.concatenate((ground_layer[:, 2],middle_layer[:,2], upper_layer[:, 2]))
+    }
+
+    return positions
+
+def create_multi_box_lattice(a, repetitions):
+    # Generate positions for a multi-box FCC lattice by repeating the single FCC unit cell
+    lattice = fcc_lattice(a)
+    multi_box_positions = {'x': [],'y': [],'z': []
+    }
+
+    for i in range(repetitions[0]):
+        for j in range(repetitions[1]):
+            for k in range(repetitions[2]):
+                # Calculate offsets for each repetition
+                offset_x = i * a
+                offset_y = j * a
+                offset_z = k * a
+
+                # Add the positions of the current FCC unit cell with offset to the multi-box lattice
+                multi_box_positions['x'] = np.concatenate((multi_box_positions['x'], lattice['x'] + offset_x))
+                multi_box_positions['y'] = np.concatenate((multi_box_positions['y'], lattice['y'] + offset_y))
+                multi_box_positions['z'] = np.concatenate((multi_box_positions['z'], lattice['z'] + offset_z))
+
+    return multi_box_positions
+
+def plot_fcc_lattice(positions):
+    # Plot the FCC lattice
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection='3d')
+
+    # Scatter plot for FCC lattice
+    ax.scatter(positions['x'], positions['y'], positions['z'], c='b', marker='o', s=2, alpha=0.7, label='FCC lattice')
+
+    # Set labels and title for the plot
+    ax.set_xlabel('X')
+    ax.set_ylabel('Y')
+    ax.set_zlabel('Z')
+    ax.set_title('FCC Lattice')
+
+    # Add legend and grid to the plot
+    ax.legend()
+    ax.grid(True, linestyle='dotted', linewidth=0.5, alpha=0.5)
+
+    # Display the plot
+    plt.show()
+
+# Example usage:
+reps = 3
+repetitions = (reps,reps ,reps )
+multi_box_positions = create_multi_box_lattice(L, repetitions)
+
+# Plot the multi-box FCC lattice
+plot_fcc_lattice(multi_box_positions)
 
 
