@@ -25,10 +25,10 @@ class System_of_particles:
             "z": np.zeros(N),
         }
 
-        previous_positions["x"] = self.positions["x"]
-        previous_positions["y"] = self.positions["y"]
+        previous_positions["x"] = copy.deepcopy(self.positions["x"])
+        previous_positions["y"] = copy.deepcopy(self.positions["y"])
         if z_dimension:
-            previous_positions["z"] = self.positions["z"]
+            previous_positions["z"] = copy.deepcopy(self.positions["z"])
         # self.previous_position = [self.particles[i]["position"] for i in range(len(self.particles))]
 
         current_force = Calculate_force(previous_positions)
@@ -82,10 +82,12 @@ class System_of_particles:
                     + self.velocities["z"] ** 2
                 )
             lambda_ = Lambda(velocities)
+            lambda_ = 1
             self.velocities["x"] = lambda_ * self.velocities["x"]
             self.velocities["y"] = lambda_ * self.velocities["y"]
             if z_dimension:
                 self.velocities["z"] = lambda_ * self.velocities["z"]
+        print(self.velocities["y"])
 
         # return self
 
@@ -146,7 +148,7 @@ def Calculate_potential(positions):
             if z_dimension:
                 delta_z = (positions["z"][j] - positions["z"][i] + L / 2) % L - L / 2
                 r = ((r) ** 2 + (delta_z) ** 2) ** 0.5
-            if r == 0:
+            if np.isclose(r, 0):
                 print("Zero")
 
             potential += 4 * ((1 / r) ** 12 - (1 / r) ** 6)
@@ -218,12 +220,12 @@ def main():
     epsilon = 119.8 * boltzmann
     sigma = 3.405 * 10**-10
     L = 10
-    h = 0.01  # 10**-15
+    h = 0.001  # 10**-15
 
     scale = 1
-    N = 18  # 108  # round(scale**2 * L**2)  # 108
+    N = 2  # 18  # 108  # round(scale**2 * L**2)  # 108
     v = np.sqrt(3)  # 401.0484  # * np.sqrt(epsilon/m)
-    timesteps = 100
+    timesteps = 500
     t_end = timesteps * h
     z_dimension = False
 
@@ -249,15 +251,19 @@ def main():
     proto_positions = np.arange(0, L**2, scale**2 * L**2 / N)
 
     Argon_system = System_of_particles(
-        positions=lattice_positions,
-        velocities={
-            "x": np.array(
-                [np.cos(velocity_XYdirections[i]) * velocities[i] for i in range(N)]
-            ),
-            "y": np.array(
-                [np.sin(velocity_XYdirections[i]) * velocities[i] for i in range(N)]
-            ),
-        }
+        positions={
+            "x": np.array([0.4 * L, 0.5 * L]),
+            "y": np.array([0.5 * L, 0.5 * L]),
+        },
+        velocities={"x": np.array([1, -1]), "y": np.array([0, 0])}
+        # {
+        #     "x": np.array(
+        #         [np.cos(velocity_XYdirections[i]) * velocities[i] for i in range(N)]
+        #     ),
+        #     "y": np.array(
+        #         [np.sin(velocity_XYdirections[i]) * velocities[i] for i in range(N)]
+        #     ),
+        # }
         if not z_dimension
         else {
             "x": np.array(
@@ -320,11 +326,22 @@ def main():
                 Argon_system.velocities["z"],
             )
         else:
-            ax.quiver(
+            plt.scatter(
                 Argon_system.positions["x"],
                 Argon_system.positions["y"],
-                Argon_system.velocities["x"],
-                Argon_system.velocities["y"],
+                color=["red", "blue"],
+            )
+            ax.quiver(
+                Argon_system.positions["x"][0],
+                Argon_system.positions["y"][0],
+                Argon_system.velocities["x"][0],
+                Argon_system.velocities["y"][0],
+            )
+            ax.quiver(
+                Argon_system.positions["x"][1],
+                Argon_system.positions["y"][1],
+                Argon_system.velocities["x"][1],
+                Argon_system.velocities["y"][1],
             )
         plt.pause(0.05)
 
@@ -356,6 +373,7 @@ def main():
         np.arange(0, t_end, h),
         np.array(potential_over_time) + np.array(kinetic_over_time),
         label="Total energy",
+        linestyle='--',
     )
     plt.legend()
     plt.show()
