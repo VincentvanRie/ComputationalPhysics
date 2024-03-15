@@ -17,6 +17,7 @@ class System_of_particles:
     def __init__(self, positions, velocities):
         self.positions = positions  # [[],[]],[],[]] # {"x": [2, 4, 13, 314 3, 234 2], "y": [[],[],[]]}
         self.velocities = velocities
+        self.forces = {"x": [], "y": []}
 
     def Change_positions(self):
         previous_positions = {
@@ -32,6 +33,7 @@ class System_of_particles:
         # self.previous_position = [self.particles[i]["position"] for i in range(len(self.particles))]
 
         current_force = Calculate_force(previous_positions)
+        self.forces = current_force
 
         # current_force = [self.Calculate_force(self.particles[i]["position"]) for i in range(len(self.particles))]
 
@@ -73,7 +75,7 @@ class System_of_particles:
                 force["z"] + current_force["z"]
             ) * h / (2)
 
-        if time == h % 10 and time < (100 * h):
+        if time == h % 10 and time < (50 * h) and False:
             velocities = np.sqrt(self.velocities["x"] ** 2 + self.velocities["y"] ** 2)
             if z_dimension:
                 velocities = np.sqrt(
@@ -82,7 +84,6 @@ class System_of_particles:
                     + self.velocities["z"] ** 2
                 )
             lambda_ = Lambda(velocities)
-            lambda_ = 1
             self.velocities["x"] = lambda_ * self.velocities["x"]
             self.velocities["y"] = lambda_ * self.velocities["y"]
             if z_dimension:
@@ -120,7 +121,7 @@ def Calculate_force(positions):
                 XYangle = math.atan2(delta_y, delta_x)
 
                 force = (
-                    24 * (2 * (1 / r) ** 13 - (1 / r) ** 7)
+                    -24 * (2 * (1 / r) ** 13 - (1 / r) ** 7)
                     # / sigma
                 )
 
@@ -177,7 +178,7 @@ def Lambda(velocities):
     )  # np.sqrt((3 * (N - 1) * boltzmann * T) / (np.sum(velocities**2) * m))
 
 
-def PrepateLattice():
+def PrepareLattice():
     if z_dimension:
         x1 = np.array([0, 1 / 3 * L, 2 / 3 * L] * 9)
         y1 = np.array(([0] * 3 + [1 / 3 * L] * 3 + [2 / 3 * L] * 3) * 3)
@@ -215,23 +216,25 @@ def PrepateLattice():
 def main():
     global m, epsilon, sigma, L, h, boltzmann, T, N, z_dimension
     boltzmann = 1.38064852 * 10**-23
-    T = 1
     m = 39.948 * 1.66053906660 * 10**-27
     epsilon = 119.8 * boltzmann
     sigma = 3.405 * 10**-10
-    L = 10
+
+    z_dimension = True
+    N = 108 if z_dimension else 18
+
+    T = 1
+    rho = 0.8
+
+    L = (N / rho) ** (1 / (3 if z_dimension else 2))
     h = 0.001  # 10**-15
 
-    scale = 1
-    N = 2  # 18  # 108  # round(scale**2 * L**2)  # 108
-    v = np.sqrt(3)  # 401.0484  # * np.sqrt(epsilon/m)
-    timesteps = 500
+    timesteps = 100
     t_end = timesteps * h
-    z_dimension = False
 
-    velocities = np.array([random.normalvariate(v, 0.2) for _ in range(N)])
+    velocities = np.array([random.normalvariate(0, 2 * T) for _ in range(N)])
 
-    # velocities = Lambda(velocities) * velocities
+    velocities = Lambda(velocities) * velocities
 
     velocity_XYdirections = np.array([random.uniform(-np.pi, np.pi) for _ in range(N)])
     velocity_Zdirections = np.array([random.uniform(0, np.pi) for _ in range(N)])
@@ -246,24 +249,18 @@ def main():
         else None,
     }
 
-    lattice_positions = PrepateLattice()
-
-    proto_positions = np.arange(0, L**2, scale**2 * L**2 / N)
+    lattice_positions = PrepareLattice()
 
     Argon_system = System_of_particles(
-        positions={
-            "x": np.array([0.4 * L, 0.5 * L]),
-            "y": np.array([0.5 * L, 0.5 * L]),
-        },
-        velocities={"x": np.array([1, -1]), "y": np.array([0, 0])}
-        # {
-        #     "x": np.array(
-        #         [np.cos(velocity_XYdirections[i]) * velocities[i] for i in range(N)]
-        #     ),
-        #     "y": np.array(
-        #         [np.sin(velocity_XYdirections[i]) * velocities[i] for i in range(N)]
-        #     ),
-        # }
+        positions=lattice_positions,
+        velocities={
+            "x": np.array(
+                [np.cos(velocity_XYdirections[i]) * velocities[i] for i in range(N)]
+            ),
+            "y": np.array(
+                [np.sin(velocity_XYdirections[i]) * velocities[i] for i in range(N)]
+            ),
+        }
         if not z_dimension
         else {
             "x": np.array(
@@ -294,8 +291,8 @@ def main():
     potential_over_time = []
     kinetic_over_time = []
 
-    fig = plt.figure()
-    if z_dimension:
+    fig = plt.figure(figsize=(9, 9))
+    if not z_dimension:
         ax = fig.add_subplot(projection="3d")
     else:
         ax = fig.add_subplot()
@@ -313,9 +310,10 @@ def main():
         positions_over_time.append(positions)
         velocities_over_time.append(velocities)
         ax.cla()
+        ax.set_title(f"Time: {time}")
         ax.set_xlim(0, L)
         ax.set_ylim(0, L)
-        if z_dimension:
+        if not z_dimension:
             ax.set_zlim(0, L)
             ax.quiver(
                 Argon_system.positions["x"],
@@ -324,26 +322,21 @@ def main():
                 Argon_system.velocities["x"],
                 Argon_system.velocities["y"],
                 Argon_system.velocities["z"],
+                length=0.1,
             )
         else:
             plt.scatter(
                 Argon_system.positions["x"],
                 Argon_system.positions["y"],
-                color=["red", "blue"],
+                # color=["red", "blue"],
             )
             ax.quiver(
-                Argon_system.positions["x"][0],
-                Argon_system.positions["y"][0],
-                Argon_system.velocities["x"][0],
-                Argon_system.velocities["y"][0],
+                Argon_system.positions["x"],
+                Argon_system.positions["y"],
+                Argon_system.forces["x"],
+                Argon_system.forces["y"],
             )
-            ax.quiver(
-                Argon_system.positions["x"][1],
-                Argon_system.positions["y"][1],
-                Argon_system.velocities["x"][1],
-                Argon_system.velocities["y"][1],
-            )
-        plt.pause(0.05)
+        plt.pause(0.000005)
 
     plt.show()
     plt.figure()
@@ -373,7 +366,7 @@ def main():
         np.arange(0, t_end, h),
         np.array(potential_over_time) + np.array(kinetic_over_time),
         label="Total energy",
-        linestyle='--',
+        linestyle="--",
     )
     plt.legend()
     plt.show()
