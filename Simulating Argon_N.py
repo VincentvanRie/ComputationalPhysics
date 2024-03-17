@@ -31,7 +31,7 @@ sigma = 3.405 * 10**-10
 z_dimension = True
 N = 108 if z_dimension else 18
 
-T = 100
+T = 0.1
 rho = 0.8
 
 L = (N / rho) ** (1 / (3 if z_dimension else 2))
@@ -119,7 +119,7 @@ class System_of_particles:
         ax = fig.add_subplot(111, projection='3d')
         ax.scatter(positions['x'], positions['y'], positions['z'], c='b', marker='o', s=5, alpha=0.7) #, label='FCC lattice'
         plt.quiver(positions["x"], positions["y"],positions["z"],
-                   velocities["x"], velocities["y"],velocities["z"], length = 0.1) 
+                   velocities["x"], velocities["y"],velocities["z"], length = 0.5, normalize = True,color = 'red') 
         # Set labels and title for the plot
         ax.set_xlabel('X')
         ax.set_ylabel('Y')
@@ -543,18 +543,38 @@ if __name__ == "__main__":
 #%%
 
 import numpy as np
+import matplotlib.pyplot as plt
 '''
 In this part the data is analysed 
 '''
+
+positions = np.load('positions.npy', allow_pickle=True)
+velocities = np.load('velocities.npy', allow_pickle=True)
+
+
+
+N = len(positions[0]["x"])
+T = 100
+rho = 0.8
+
+
+L = (N / rho) ** (1 / (3))
+h = 0.001  # 10**-15
+boltzmann = 1.38064852 * 10**-23
+epsilon = 119.8 * boltzmann
+
 
 
 positions = np.load('positions.npy', allow_pickle=True)
 velocities = np.load('velocities.npy', allow_pickle=True)
 
 
-def pair_correlation(positions):
+
+
+def pair_correlation_plot(positions):
     '''
     input: position dictionary
+    output: plot if the histogram
     '''
     
     particle_distances = np.array([])
@@ -577,10 +597,53 @@ def pair_correlation(positions):
     #plt.scatter(np.arange(y),particle_distances)
     
     bin_size = 0.01
-    plt.hist(particle_distances,np.arange(0,L,bin_size))
-     
+    bins = L/bin_size
     
+    plt.hist(particle_distances,np.arange(0,L,bin_size))
     plt.show()
+    
+
+    
+def average_hist(all_positions,analyse_times,bin_size):
+    '''
+    input: all positions and the times to be analysed
+    output: pair correlation histogram of the average hist,bins
+    '''
+    plot = True  #plots the avg_hist if true
+    num_bins = int(L/bin_size)
+    total_hist = np.zeros(num_bins)
+    
+    
+    
+    for t in analyse_times:
+        positions = all_positions[t]
+        particle_distances = np.array([])
+        for i in range(N):
+            for j in range(i + 1, N):
+                delta_x = (positions["x"][j] - positions["x"][i] + L / 2) % L - L / 2
+                delta_y = (positions["y"][j] - positions["y"][i] + L / 2) % L - L / 2
+                delta_z = (positions["z"][j] - positions["z"][i] + L / 2) % L - L / 2
+                r = ((delta_x) ** 2 + (delta_y)**2 + (delta_z) ** 2) ** 0.5
+    
+                    
+                particle_distances = np.append(particle_distances,r)
+        
+        hist,bins = np.histogram(particle_distances,bins = num_bins)
+        total_hist += hist
+        
+    
+    avg_hist = total_hist/len(analyse_times)
+
+    if plot:
+        plt.bar(bins[:-1], avg_hist, width=np.diff(bins), edgecolor='black')
+        plt.xlabel('Distance')
+        plt.ylabel('Frequency')
+        plt.title('Average Pair Correlation Histogram')
+        plt.grid(True)
+        plt.show()
+    
+    return avg_hist, bins
+    
     
 def pressure(positions,rho):
     
@@ -602,24 +665,78 @@ def pressure(positions,rho):
     pressure = epsilon*rho*(1 - 1/(3*len(positions["x"])*epsilon)*expec_value) #TODO something wrong with dimensionless units?
     
     return pressure
+
+def plot_fcc_lattice(positions):
+
+    # Plot the FCC lattice
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection='3d')
     
+    
+    
+    colors = np.random.rand(10, 3)
+    
+    ''' keep this part chatgpt
+    for i in random_indices:
+    
+        # Scatter plot for FCC lattice
+        ax.scatter(positions['x'][i], positions['y'][i], positions['z'][i], c='b', marker='o', s=5, alpha=0.7) #, label='FCC lattice'
+    
+        plt.quiver(system.positions["x"][i], system.positions["y"][i],system.positions["z"][i],
+                        system.velocities["x"][i], system.velocities["y"][i],system.velocities["z"][i], length = 0.1)
+        '''
+    ax.scatter(positions['x'], positions['y'], positions['z'], c='b', marker='o', s=5, alpha=0.7) #, label='FCC lattice'
+
+    # Set labels and title for the plot
+    ax.set_xlabel('X')
+    ax.set_ylabel('Y')
+    ax.set_zlabel('Z')
+    ax.set_title('FCC Lattice')
+    
+    ax.set_xlim(0, L)
+    ax.set_ylim(0, L)
+    ax.set_zlim(0, L)
+
+    
+    # Add legend and grid to the plot
+    ax.legend()
+    ax.grid(True, linestyle='dotted', linewidth=0.5, alpha=0.5)
+
+    # Display the plot
+    plt.show()   
 
 
 def main():
     #pair-correlation
+    plot_fcc_lattice(positions[0])
+    
     hist_plots = np.arange(len(positions))
     pressures = np.array([])
+    
+    times = np.arange(len(positions))
+    
+    average_hist(positions,times,0.01)
+    
+    
     for i in hist_plots:
-        pair_correlation(positions[i])
+        pair_correlation_plot(positions[i])
+        
         print('pressure is:',i,pressure(positions[i], 0.8))
         pressures = np.append(pressures,pressure(positions[i],0.8))
         
     plt.plot(pressures)
+    plt.show()
     
+
+                
+
+
     # pressure
     #  for i in hist_plots():
     #    print(pressure(positions[i], 0.8))
+
     
+
     
     
 
