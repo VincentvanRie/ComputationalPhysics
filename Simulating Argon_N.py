@@ -6,6 +6,7 @@ from matplotlib.animation import FuncAnimation
 from functools import partial
 import numpy as np
 import copy
+import sys 
 
 # class Box:
 #     def __init__(self, L, N):
@@ -17,6 +18,8 @@ Natan verandert: N vervangen door len(positions["x"]) waar handig
                  Functie descripties erbij gezet
                  def main() opgeschoond, lattice initialised met velocity in lattice functie
                  aparte functie inside the class gemaakt om te plotten
+                 2D weggehaald
+                 
 '''
 
 %matplotlib inline
@@ -28,16 +31,15 @@ m = 39.948 * 1.66053906660 * 10**-27
 epsilon = 119.8 * boltzmann
 sigma = 3.405 * 10**-10
 
-z_dimension = True
-N = 108 if z_dimension else 18
+N = 108 #number of particles
 
-T = 0.1
-rho = 0.8
+T = 0.5
+rho = 1.2
 
-L = (N / rho) ** (1 / (3 if z_dimension else 2))
-h = 0.001  # 10**-15
+L = (N / rho) ** (1 / 3)
+h = 0.01  # 10**-15
 
-timesteps = 50
+timesteps = 300 #nujmber of iterations
 t_end = timesteps * h
 
 save_measurement = True #if this is true write the data to an external file for further analysis 
@@ -51,66 +53,53 @@ class System_of_particles:
         self.forces = {"x": [], "y": [], "z":[]}
 
     def Change_positions(self):
+        '''
+        Function that updates the system to the next timestep. 
+        '''
         previous_positions = {"x": np.zeros(N),"y": np.zeros(N),"z": np.zeros(N)}
-
-        previous_positions["x"] = copy.deepcopy(self.positions["x"])
-        previous_positions["y"] = copy.deepcopy(self.positions["y"])
-        if z_dimension:
-            previous_positions["z"] = copy.deepcopy(self.positions["z"])
-        # self.previous_position = [self.particles[i]["position"] for i in range(len(self.particles))]
+        dimensions = ["x", "y", "z"]
+        
+        
+        for key in dimensions:
+            previous_positions[key] = copy.deepcopy(self.positions[key])
+            # self.previous_position = [self.particles[i]["position"] for i in range(len(self.particles))]
 
         current_force = Calculate_force(previous_positions)
         self.forces = current_force
 
         # current_force = [self.Calculate_force(self.particles[i]["position"]) for i in range(len(self.particles))]
 
-        self.positions["x"] = (self.positions["x"] + self.velocities["x"] * h
-            + current_force["x"] * h**2 / (2))
-        self.positions["y"] = (self.positions["y"]+ self.velocities["y"] * h
-            + current_force["y"] * h**2 / (2))
-        if z_dimension:
-            self.positions["z"] = (self.positions["z"] + self.velocities["z"] * h
-                + current_force["z"] * h**2 / (2))
+        for key in dimensions: 
+            self.positions[key] = (self.positions[key] +    self.velocities[key] * h
+                + current_force[key] * h**2 / (2)) 
+            self.positions[key] = self.positions[key] % L
+        
         # self.positions = [self.particles[i]["position"] + self.particles[i]["velocity"] * h + current_force[i] * h**2 / (2*m) for i in range(len(self.particles))]
 
-        for i in range(N):
-            self.positions["x"][i] = self.positions["x"][i] % L
-            self.positions["y"][i] = self.positions["y"][i] % L
-            if z_dimension:
-                self.positions["z"][i] = self.positions["z"][i] % L
 
         # x(t) = self.previous_position
         force = Calculate_force(self.positions)
+        
+        for key in dimensions:
+            self.velocities[key] = self.velocities[key] + (force[key] + current_force[key]) * h / (2)
 
-        self.velocities["x"] = self.velocities["x"] + (
-            force["x"] + current_force["x"]
-        ) * h / (2)
-        self.velocities["y"] = self.velocities["y"] + (
-            force["y"] + current_force["y"]
-        ) * h / (2)
-        if z_dimension:
-            self.velocities["z"] = self.velocities["z"] + (
-                force["z"] + current_force["z"]
-            ) * h / (2)
 
-        if time == h % 10 and time < (50 * h) and False:
-            velocities = np.sqrt(self.velocities["x"] ** 2 + self.velocities["y"] ** 2)
-            if z_dimension:
-                velocities = np.sqrt(
-                    self.velocities["x"] ** 2
-                    + self.velocities["y"] ** 2
-                    + self.velocities["z"] ** 2
-                )
+        if time == h % 10 and time < (50 * h):
+            velocities = np.sqrt(self.velocities["x"] ** 2 + self.velocities["y"] ** 2
+                                 + self.velocities["z"]**2)
+
             lambda_ = Lambda(velocities)
-            self.velocities["x"] = lambda_ * self.velocities["x"]
-            self.velocities["y"] = lambda_ * self.velocities["y"]
-            if z_dimension:
-                self.velocities["z"] = lambda_ * self.velocities["z"]
-        #print(self.velocities["y"])
+            for key in dimensions:
+                self.velocities[key] = lambda_ * self.velocities[key]
+            #print(self.velocities["y"])
 
         # return self
         
     def system_plotter(self, title):
+        '''
+        Function to plot the current system. Input is the title for the plot
+        and the output is a plotted figure. 
+        '''
         positions = self.positions
         velocities = self.velocities
         #forces = self.forces
@@ -139,7 +128,8 @@ class System_of_particles:
     
         # Display the plot
         plt.show()            
-
+        plt.pause(0.05)
+        plt.close()
 
 def Calculate_force(positions):
     
@@ -154,28 +144,28 @@ def Calculate_force(positions):
     
     force_dict = {"x": np.zeros(N),"y": np.zeros(N),"z": np.zeros(N)}
 
-    for i in range(N):
+    for i in range(N): #i = p1, j = p2
         # cell_particle_i
         for j in range(N):
             # cell_particle_j
             if i != j:  # and cell_particle_i = cell_particle_j:
                 delta_x = (positions["x"][j] - positions["x"][i] + L / 2) % L - L / 2
                 delta_y = (positions["y"][j] - positions["y"][i] + L / 2) % L - L / 2
-                r = ((delta_x) ** 2 + (delta_y) ** 2) ** 0.5
-                if z_dimension:
-                    delta_z = (positions["z"][j] - positions["z"][i] + L / 2) % L - L / 2
-                    r = ((r) ** 2 + (delta_z) ** 2) ** 0.5
-                    Zangle = math.atan2(delta_z, r)
+                delta_z = (positions["z"][j] - positions["z"][i] + L / 2) % L - L / 2
+                
+                r = ((delta_x) ** 2 + (delta_y) ** 2 + (delta_z) ** 2) ** 0.5
+                
+                Zangle = math.atan2(delta_z, r)
                 if r == 0:
                     print("Zero")
+                
                 XYangle = math.atan2(delta_y, delta_x)
 
                 force = (-24 * (2 * (1 / r) ** 13 - (1 / r) ** 7))
 
                 force_dict["x"][i] += force * math.cos(XYangle)
                 force_dict["y"][i] += force * math.sin(XYangle)
-                if z_dimension:
-                    force_dict["z"][i] += force * math.sin(Zangle)
+                force_dict["z"][i] += force * math.sin(Zangle)
 
     return force_dict
 
@@ -197,13 +187,7 @@ def Calculate_potential(positions):
 
         for j in range(i + 1, N):
             # cell_particle_j
-
-            delta_x = (positions["x"][j] - positions["x"][i] + L / 2) % L - L / 2
-            delta_y = (positions["y"][j] - positions["y"][i] + L / 2) % L - L / 2
-            r = ((delta_x) ** 2 + (delta_y) ** 2) ** 0.5
-            if z_dimension:
-                delta_z = (positions["z"][j] - positions["z"][i] + L / 2) % L - L / 2
-                r = ((r) ** 2 + (delta_z) ** 2) ** 0.5
+            r = two_part_distance(i, j, positions)
             if np.isclose(r, 0):
                 print("Zero")
 
@@ -248,45 +232,31 @@ def PrepareLattice():
     output: dictionary with particle positions {"x": ..., "y": ..., "z": ...}, 
             dictionary with particle velocities {"x": ..., "y": ..., "z": ...}
     '''
+    
+    # Define lattice positions in 3D
+    x1 = np.array([0, 1 / 3 * L, 2 / 3 * L] * 9)
+    y1 = np.array(([0] * 3 + [1 / 3 * L] * 3 + [2 / 3 * L] * 3) * 3)
+    z1 = np.repeat([0, 1 / 3 * L, 2 / 3 * L], 9)
 
-    z_dimension = True  # Corrected variable name
+    # Compute other lattice positions
+    x2 = x1 + np.repeat(1 / 6 * L, 27)
+    y2 = y1 + np.repeat(1 / 6 * L, 27)
+    z2 = z1
 
-    if z_dimension:
-        # Define lattice positions in 3D
-        x1 = np.array([0, 1 / 3 * L, 2 / 3 * L] * 9)
-        y1 = np.array(([0] * 3 + [1 / 3 * L] * 3 + [2 / 3 * L] * 3) * 3)
-        z1 = np.repeat([0, 1 / 3 * L, 2 / 3 * L], 9)
+    x3 = x1 + np.repeat(1 / 6 * L, 27)
+    y3 = y1
+    z3 = z1 + np.repeat(1 / 6 * L, 27)
 
-        # Compute other lattice positions
-        x2 = x1 + np.repeat(1 / 6 * L, 27)
-        y2 = y1 + np.repeat(1 / 6 * L, 27)
-        z2 = z1
+    x4 = x1
+    y4 = y1 + np.repeat(1 / 6 * L, 27)
+    z4 = z1 + np.repeat(1 / 6 * L, 27)
 
-        x3 = x1 + np.repeat(1 / 6 * L, 27)
-        y3 = y1
-        z3 = z1 + np.repeat(1 / 6 * L, 27)
-
-        x4 = x1
-        y4 = y1 + np.repeat(1 / 6 * L, 27)
-        z4 = z1 + np.repeat(1 / 6 * L, 27)
-
-        # Concatenate positions
-        x = np.concatenate((x1, x2, x3, x4))
-        y = np.concatenate((y1, y2, y3, y4))
-        z = np.concatenate((z1, z2, z3, z4))
-    else:
-        # Define lattice positions in 2D
-        x1 = np.array([0, 1 / 3 * L, 2 / 3 * L] * 3)
-        y1 = np.array([0] * 3 + [1 / 3 * L] * 3 + [2 / 3 * L] * 3)
-
-        # Compute other lattice positions
-        x2 = x1 + np.repeat(1 / 6 * L, 9)
-        y2 = y1 + np.repeat(1 / 6 * L, 9)
-
-        # Concatenate positions
-        x = np.concatenate((x1, x2))
-        y = np.concatenate((y1, y2))
-        z = None
+    # Concatenate positions
+    x = np.concatenate((x1, x2, x3, x4))
+    y = np.concatenate((y1, y2, y3, y4))
+    z = np.concatenate((z1, z2, z3, z4))
+    
+    positions = {"x": x,"y": y,"z": z}
 
     # Initialize velocities
 
@@ -296,22 +266,12 @@ def PrepareLattice():
     velocity_XYdirections = np.array([random.uniform(-np.pi, np.pi) for _ in range(N)])
     velocity_Zdirections = np.array([random.uniform(0, np.pi) for _ in range(N)])
     
-
-    if z_dimension:
-        # Compute 3D velocities
-        velocities = {
-            "x": np.array([np.cos(velocity_XYdirections[i]) * np.cos(velocity_Zdirections[i]) * velocities[i] for i in range(N)]),
-            "y": np.array([np.sin(velocity_XYdirections[i]) * np.cos(velocity_Zdirections[i]) * velocities[i] for i in range(N)]),
-            "z": np.array([np.sin(velocity_Zdirections[i]) * velocities[i] for i in range(N)])
-        }
-    else:
-        # Compute 2D velocities
-        velocities = {
-            "x": np.array([np.cos(velocity_XYdirections[i]) * velocities[i] for i in range(N)]),
-            "y": np.array([np.sin(velocity_XYdirections[i]) * velocities[i] for i in range(N)])
-        }
-
-    return {"x": x, "y": y, "z": z}, velocities
+    # Compute 3D velocities
+    velocities = {
+        "x": np.array([np.cos(velocity_XYdirections[i]) * np.cos(velocity_Zdirections[i]) * velocities[i] for i in range(N)]),
+        "y": np.array([np.sin(velocity_XYdirections[i]) * np.cos(velocity_Zdirections[i]) * velocities[i] for i in range(N)]),
+        "z": np.array([np.sin(velocity_Zdirections[i]) * velocities[i] for i in range(N)])}
+    return positions, velocities
 
 def pair_correlation(system):
     '''
@@ -323,14 +283,7 @@ def pair_correlation(system):
     
     for i in range(N):
         for j in range(i + 1, N):
-            delta_x = (positions["x"][j] - positions["x"][i] + L / 2) % L - L / 2
-            delta_y = (positions["y"][j] - positions["y"][i] + L / 2) % L - L / 2
-            r = ((delta_x) ** 2 + (delta_y) ** 2) ** 0.5
-            if z_dimension:
-                delta_z = (positions["z"][j] - positions["z"][i] + L / 2) % L - L / 2
-                r = ((r) ** 2 + (delta_z) ** 2) ** 0.5
-            if np.isclose(r, 0):
-                print("Zero")
+            r = two_part_distance(i, j, positions)
                 
             particle_distances = np.append(particle_distances,r)
             
@@ -354,14 +307,7 @@ def pressure(system,rho):
     
     for i in range(N):
         for j in range(i + 1, N):
-            delta_x = (positions["x"][j] - positions["x"][i] + L / 2) % L - L / 2
-            delta_y = (positions["y"][j] - positions["y"][i] + L / 2) % L - L / 2
-            r = ((delta_x) ** 2 + (delta_y) ** 2) ** 0.5
-            if z_dimension:
-                delta_z = (positions["z"][j] - positions["z"][i] + L / 2) % L - L / 2
-                r = ((r) ** 2 + (delta_z) ** 2) ** 0.5
-            if np.isclose(r, 0):
-                print("Zero")
+            r = two_part_distance(i, j, positions)
             
             potential_der = 2 * (-24*(1 / r) ** 13 + 12* (1 / r) ** 7)
             #print(potential_der)
@@ -372,6 +318,20 @@ def pressure(system,rho):
     
     return pressure
 
+
+def two_part_distance(p1,p2,positions):
+    '''
+    Take the position dictionary and 2 particles 
+    as input and return the distance between p1 and p1
+    
+    '''
+
+    delta_x = (positions["x"][p2] - positions["x"][p1] + L / 2) % L - L / 2
+    delta_y = (positions["y"][p2] - positions["y"][p1] + L / 2) % L - L / 2
+    delta_z = (positions["z"][p2] - positions["z"][p1] + L / 2) % L - L / 2
+    r = ((delta_x) ** 2 + (delta_y) ** 2 + (delta_z) ** 2) ** 0.5
+    
+    return r
 
 
 def main():
@@ -388,13 +348,14 @@ def main():
 
     potential_over_time = []
     kinetic_over_time = []
-
+    '''
     fig = plt.figure(figsize=(9, 9))
     if not z_dimension:
         ax = fig.add_subplot(projection="3d")
     else:
         ax = fig.add_subplot()
     # Set limits
+    '''
 
     #start the cycle of simulations
     global time
@@ -406,6 +367,15 @@ def main():
         #calculate the potential and kinetic energy at each time step
         potential_over_time.append(np.sum(Calculate_potential(Argon_system.positions)))
         kinetic_over_time.append(Calculate_kinetic(Argon_system.velocities))
+
+        
+        '''
+        # quite programm if explotion occured 
+        if np.sum(Calculate_potential(Argon_system.positions) + 
+                  Calculate_kinetic(Argon_system.velocities)) > 10**10:
+            print("Explotion")
+            sys.exit()
+        '''    
 
         positions = copy.deepcopy(Argon_system.positions)
         velocities = copy.deepcopy(Argon_system.velocities)
@@ -484,8 +454,8 @@ def main():
     
     # save the data for further analysis
     if save_measurement:
-        np.save('positions',np.array(positions_over_time))
-        np.save('velocities',np.array(velocities_over_time))
+        np.save(f'positions{T}_{rho}',np.array(positions_over_time))
+        np.save(f'velocities{T}_{rho}',np.array(velocities_over_time))
     
 
     # for time in np.arange(h, t_end, h):
@@ -547,28 +517,42 @@ import matplotlib.pyplot as plt
 '''
 In this part the data is analysed 
 '''
+## Specify for which rho/T the analysis is done
+T = 0.5
+rho = 1.2
 
-positions = np.load('positions.npy', allow_pickle=True)
-velocities = np.load('velocities.npy', allow_pickle=True)
+
+positions = np.load(f'positions{T}_{rho}.npy', allow_pickle=True)
+velocities = np.load(f'velocities{T}_{rho}.npy', allow_pickle=True)
 
 
 
 N = len(positions[0]["x"])
-T = 100
-rho = 0.8
-
-
 L = (N / rho) ** (1 / (3))
+print(L)
 h = 0.001  # 10**-15
 boltzmann = 1.38064852 * 10**-23
 epsilon = 119.8 * boltzmann
+bin_size = 0.1
 
 
 
-positions = np.load('positions.npy', allow_pickle=True)
-velocities = np.load('velocities.npy', allow_pickle=True)
 
 
+
+def two_part_distance(p1,p2,positions):
+    '''
+    Take the position dictionary and 2 particles 
+    as input and return the distance between p1 and p1
+    
+    '''
+
+    delta_x = (positions["x"][p2] - positions["x"][p1] + L / 2) % L - L / 2
+    delta_y = (positions["y"][p2] - positions["y"][p1] + L / 2) % L - L / 2
+    delta_z = (positions["z"][p2] - positions["z"][p1] + L / 2) % L - L / 2
+    r = ((delta_x) ** 2 + (delta_y) ** 2 + (delta_z) ** 2) ** 0.5
+    
+    return r
 
 
 def pair_correlation_plot(positions):
@@ -581,12 +565,7 @@ def pair_correlation_plot(positions):
     
     for i in range(N):
         for j in range(i + 1, N):
-            delta_x = (positions["x"][j] - positions["x"][i] + L / 2) % L - L / 2
-            delta_y = (positions["y"][j] - positions["y"][i] + L / 2) % L - L / 2
-            delta_z = (positions["z"][j] - positions["z"][i] + L / 2) % L - L / 2
-            r = ((delta_x) ** 2 + (delta_y)**2 + (delta_z) ** 2) ** 0.5
-
-                
+            r = two_part_distance(i, j, positions)
             particle_distances = np.append(particle_distances,r)
             
             
@@ -596,7 +575,7 @@ def pair_correlation_plot(positions):
     
     #plt.scatter(np.arange(y),particle_distances)
     
-    bin_size = 0.01
+    
     bins = L/bin_size
     
     plt.hist(particle_distances,np.arange(0,L,bin_size))
@@ -620,10 +599,7 @@ def average_hist(all_positions,analyse_times,bin_size):
         particle_distances = np.array([])
         for i in range(N):
             for j in range(i + 1, N):
-                delta_x = (positions["x"][j] - positions["x"][i] + L / 2) % L - L / 2
-                delta_y = (positions["y"][j] - positions["y"][i] + L / 2) % L - L / 2
-                delta_z = (positions["z"][j] - positions["z"][i] + L / 2) % L - L / 2
-                r = ((delta_x) ** 2 + (delta_y)**2 + (delta_z) ** 2) ** 0.5
+                r = two_part_distance(i, j, positions)
     
                     
                 particle_distances = np.append(particle_distances,r)
@@ -633,16 +609,19 @@ def average_hist(all_positions,analyse_times,bin_size):
         
     
     avg_hist = total_hist/len(analyse_times)
-
+    
+    #print(bins[:-1])
+    pair_correlation_g = (2*L**3)/(N*(N-1))*avg_hist/(4*np.pi*bins[:-1]**2*bin_size)
+    
     if plot:
-        plt.bar(bins[:-1], avg_hist, width=np.diff(bins), edgecolor='black')
+        plt.bar(bins[:-1], pair_correlation_g, width=np.diff(bins), edgecolor='black')
         plt.xlabel('Distance')
         plt.ylabel('Frequency')
-        plt.title('Average Pair Correlation Histogram')
+        plt.title(f'Average Pair Correlation Histogram with rho = {rho},T = {T} ')
         plt.grid(True)
         plt.show()
     
-    return avg_hist, bins
+    return pair_correlation_g, bins
     
     
 def pressure(positions,rho):
@@ -651,11 +630,7 @@ def pressure(positions,rho):
     
     for i in range(N):
         for j in range(i + 1, N):
-            delta_x = (positions["x"][j] - positions["x"][i] + L / 2) % L - L / 2
-            delta_y = (positions["y"][j] - positions["y"][i] + L / 2) % L - L / 2
-            delta_z = (positions["z"][j] - positions["z"][i] + L / 2) % L - L / 2
-            
-            r = ((delta_x) ** 2 + (delta_y) ** 2 + (delta_z) ** 2) ** 0.5
+            r = two_part_distance(i, j, positions)
         
             potential_der = 2 * (-24*(1 / r) ** 13 + 12* (1 / r) ** 7)
             #print(potential_der)
@@ -693,10 +668,11 @@ def plot_fcc_lattice(positions):
     ax.set_zlabel('Z')
     ax.set_title('FCC Lattice')
     
+    '''
     ax.set_xlim(0, L)
     ax.set_ylim(0, L)
     ax.set_zlim(0, L)
-
+    '''
     
     # Add legend and grid to the plot
     ax.legend()
@@ -708,16 +684,17 @@ def plot_fcc_lattice(positions):
 
 def main():
     #pair-correlation
-    plot_fcc_lattice(positions[0])
+    plot_fcc_lattice(positions[1])
     
     hist_plots = np.arange(len(positions))
     pressures = np.array([])
     
     times = np.arange(len(positions))
+    times = np.arange(20,40)
     
-    average_hist(positions,times,0.01)
+    average_hist(positions,times,bin_size)
     
-    
+    '''
     for i in hist_plots:
         pair_correlation_plot(positions[i])
         
@@ -726,6 +703,7 @@ def main():
         
     plt.plot(pressures)
     plt.show()
+    '''
     
 
                 
@@ -742,4 +720,12 @@ def main():
 
 if __name__ == "__main__":
     main()
+    
+#%% test
+
+n = np.array([1,5,-7,2])
+r = np.array([1,2,3,4])
+g = n/(r**2*0.1)
+print(n % 3)
+
 
