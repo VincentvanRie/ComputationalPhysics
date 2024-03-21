@@ -22,6 +22,18 @@ Natan verandert: N vervangen door len(positions["x"]) waar handig
                  
 '''
 
+
+'''
+TO DO: 
+    wat zijn de juiste waardes voor rescalig lambda?
+    pressure and pair correlation in juiste waardes
+    
+'''
+
+#TODO energy in terms of epsilon:
+    
+    
+
 %matplotlib inline
 
 
@@ -33,17 +45,28 @@ sigma = 3.405 * 10**-10
 
 N = 108 #number of particles
 
-T = 0.5
-rho = 1.2
+T = 3
+rho = 0.3
 
 L = (N / rho) ** (1 / 3)
-h = 0.01  # 10**-15
+h = 0.001  # 10**-15
 
-timesteps = 300 #nujmber of iterations
+timesteps = 300 #number of iterations
 t_end = timesteps * h
 
 save_measurement = True #if this is true write the data to an external file for further analysis 
 
+#set the values for lambda renormalization
+frequency_rescale = 20
+number_of_rescales = 4
+
+renorm_times = np.arange(0,t_end,frequency_rescale*h) #at these times lambda renormalization is performed
+renorm_times = renorm_times[0:number_of_rescales]
+print(renorm_times)
+#num_
+
+
+#print(np.arange(0, t_end, h))
 
 
 class System_of_particles:
@@ -70,7 +93,7 @@ class System_of_particles:
         # current_force = [self.Calculate_force(self.particles[i]["position"]) for i in range(len(self.particles))]
 
         for key in dimensions: 
-            self.positions[key] = (self.positions[key] +    self.velocities[key] * h
+            self.positions[key] = (self.positions[key] + self.velocities[key] * h
                 + current_force[key] * h**2 / (2)) 
             self.positions[key] = self.positions[key] % L
         
@@ -82,9 +105,12 @@ class System_of_particles:
         
         for key in dimensions:
             self.velocities[key] = self.velocities[key] + (force[key] + current_force[key]) * h / (2)
+            
 
-
-        if time == h % 10 and time < (50 * h):
+        
+        
+        if any(np.isclose(time, renorm_time) for renorm_time in renorm_times): #time == h % 10
+            print('yeah i rescaled at time', time)
             velocities = np.sqrt(self.velocities["x"] ** 2 + self.velocities["y"] ** 2
                                  + self.velocities["z"]**2)
 
@@ -161,7 +187,7 @@ def Calculate_force(positions):
                 
                 XYangle = math.atan2(delta_y, delta_x)
 
-                force = (-24 * (2 * (1 / r) ** 13 - (1 / r) ** 7))
+                force = -24 * (2 * (1 / r) ** 13 - (1 / r) ** 7)
 
                 force_dict["x"][i] += force * math.cos(XYangle)
                 force_dict["y"][i] += force * math.sin(XYangle)
@@ -210,9 +236,9 @@ def Calculate_kinetic(velocities):
             velocities["x"] ** 2 + velocities["y"] ** 2 + velocities["z"] ** 2
         )
     else:
-        velocities = np.sqrt(velocities["x"] ** 2 + velocities["y"] ** 2)
+        velocities =  np.sqrt(velocities["x"] ** 2 + velocities["y"] ** 2)
 
-    return 0.5 * np.sum(velocities**2)
+    return  0.5 * np.sum(velocities**2)
 
 
 def Lambda(velocities):
@@ -260,7 +286,8 @@ def PrepareLattice():
 
     # Initialize velocities
 
-    velocities = np.array([random.normalvariate(0, 2 * T) for _ in range(N)])
+    velocities = np.array([random.normalvariate(0, 2 * T) for _ in range(N)]) #TODO is dit goed??
+    velocities = np.random.normal(0, T,N)
     velocities = Lambda(velocities) * velocities
 
     velocity_XYdirections = np.array([random.uniform(-np.pi, np.pi) for _ in range(N)])
@@ -367,7 +394,10 @@ def main():
         #calculate the potential and kinetic energy at each time step
         potential_over_time.append(np.sum(Calculate_potential(Argon_system.positions)))
         kinetic_over_time.append(Calculate_kinetic(Argon_system.velocities))
-
+        
+        velocities = np.sqrt(Argon_system.velocities["x"] ** 2 + Argon_system.velocities["y"] ** 2
+                             + Argon_system.velocities["z"]**2)
+        #print(Lambda(velocities))
         
         '''
         # quite programm if explotion occured 
@@ -376,7 +406,7 @@ def main():
             print("Explotion")
             sys.exit()
         '''    
-
+        
         positions = copy.deepcopy(Argon_system.positions)
         velocities = copy.deepcopy(Argon_system.velocities)
         positions_over_time.append(positions)
@@ -443,6 +473,11 @@ def main():
         kinetic_over_time,
         label="Kinetic energy",
     )
+    #plot the equilibrium energy: 
+    E_target = (N-1)*3/2*T
+    plt.hlines(E_target,0,t_end,label='equilibrium energy',color = 'purple')
+    
+    
     plt.plot(
         np.arange(0, t_end, h),
         np.array(potential_over_time) + np.array(kinetic_over_time),
@@ -450,12 +485,15 @@ def main():
         linestyle="--",
     )
     plt.legend()
+    plt.xlabel('time (t tilde)')
+    plt.ylabel('energy (\u03B5)')
+    plt.title(f'Energies during the simulation with rho = {rho} and T = {T}')
     plt.show()
     
     # save the data for further analysis
     if save_measurement:
-        np.save(f'positions{T}_{rho}',np.array(positions_over_time))
-        np.save(f'velocities{T}_{rho}',np.array(velocities_over_time))
+        np.save(f'positions{T}_{rho}_long',np.array(positions_over_time))
+        np.save(f'velocities{T}_{rho}_long',np.array(velocities_over_time))
     
 
     # for time in np.arange(h, t_end, h):
@@ -517,24 +555,31 @@ import matplotlib.pyplot as plt
 '''
 In this part the data is analysed 
 '''
-## Specify for which rho/T the analysis is done
-T = 0.5
-rho = 1.2
 
+##TODO:
+   #plot bins only till L/2 
+
+
+## Specify for which rho/T the analysis is done
+T = 1
+rho = 0.8
 
 positions = np.load(f'positions{T}_{rho}.npy', allow_pickle=True)
 velocities = np.load(f'velocities{T}_{rho}.npy', allow_pickle=True)
 
-
+iterations = len(positions)-1
+num_pressures = 20 # number of times the pressure is measured
 
 N = len(positions[0]["x"])
-L = (N / rho) ** (1 / (3))
-print(L)
-h = 0.001  # 10**-15
-boltzmann = 1.38064852 * 10**-23
-epsilon = 119.8 * boltzmann
-bin_size = 0.1
 
+L = (N / rho) ** (1 / (3))
+print('Box size is:', L)
+h = 0.01  # 10**-15
+
+bin_size = 0.01
+
+pressure_times = np.linspace(0,iterations,num_pressures).astype(int)
+print(pressure_times)
 
 
 
@@ -558,7 +603,7 @@ def two_part_distance(p1,p2,positions):
 def pair_correlation_plot(positions):
     '''
     input: position dictionary
-    output: plot if the histogram
+    output: plot of the histogram
     '''
     
     particle_distances = np.array([])
@@ -601,7 +646,6 @@ def average_hist(all_positions,analyse_times,bin_size):
             for j in range(i + 1, N):
                 r = two_part_distance(i, j, positions)
     
-                    
                 particle_distances = np.append(particle_distances,r)
         
         hist,bins = np.histogram(particle_distances,bins = num_bins)
@@ -632,13 +676,18 @@ def pressure(positions,rho):
         for j in range(i + 1, N):
             r = two_part_distance(i, j, positions)
         
-            potential_der = 2 * (-24*(1 / r) ** 13 + 12* (1 / r) ** 7)
+            potential_der = 2 * (-24*(1 / r) ** 13 + 12* (1 / r) ** 7) #TODO plus or min?
             #print(potential_der)
             
             interaction_term = np.append(interaction_term,r*potential_der)
-    expec_value = np.mean(interaction_term)
-    pressure = epsilon*rho*(1 - 1/(3*len(positions["x"])*epsilon)*expec_value) #TODO something wrong with dimensionless units?
+            #print('r is ',r)
+            #print('potential der:', potential_der)
+    expec_value = np.sum(interaction_term)
+    print(expec_value)
+    #print(expec_value)
+    pressure = T*rho - rho/(6*N) * expec_value  #TODO something wrong with dimensionless units? expec value too low
     
+
     return pressure
 
 def plot_fcc_lattice(positions):
@@ -684,26 +733,33 @@ def plot_fcc_lattice(positions):
 
 def main():
     #pair-correlation
+    '''
     plot_fcc_lattice(positions[1])
     
     hist_plots = np.arange(len(positions))
-    pressures = np.array([])
+    
     
     times = np.arange(len(positions))
     times = np.arange(20,40)
     
     average_hist(positions,times,bin_size)
-    
     '''
-    for i in hist_plots:
+    pressures = np.array([])
+    for i in pressure_times:
+         
         pair_correlation_plot(positions[i])
         
-        print('pressure is:',i,pressure(positions[i], 0.8))
+        #print('pressure is:',i,pressure(positions[i], 0.8))
         pressures = np.append(pressures,pressure(positions[i],0.8))
         
-    plt.plot(pressures)
+    plt.plot(pressure_times,pressures)
+    #plt.ylim(0,np.max(pressures)+1)
+    plt.title(f"rho is {rho} and T is {T}")
     plt.show()
-    '''
+    
+    pressure_error = np.std(pressures)
+    print('The error in the pressure is given by:',pressure_error)
+    
     
 
                 
