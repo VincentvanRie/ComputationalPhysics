@@ -44,26 +44,29 @@ epsilon = 119.8 * boltzmann
 sigma = 3.405 * 10**-10
 
 N = 108 #number of particles
-#N = 2
+#N = 3
 
-T = 3
-rho = 0.3
+T = 0.5
+rho = 1.2
 
 L = (N / rho) ** (1 / 3)
-h = 0.001  # 10**-15
+#L = 3
+h = 0.01 # 10**-15
 
-timesteps = 500 #number of iterations
+timesteps = 2000 #number of iterations
 t_end = timesteps * h
 
-save_measurement = False #if this is true write the data to an external file for further analysis 
+save_measurement = True #if this is true write the data to an external file for further analysis 
 
 #set the values for lambda renormalization
-frequency_rescale = 50
+frequency_rescale = 10
 number_of_rescales = 5
 
 renorm_times = np.arange(0,t_end,frequency_rescale*h) #at these times lambda renormalization is performed
-renorm_times = renorm_times[0:number_of_rescales]
+renorm_times = renorm_times[:number_of_rescales]
 print(renorm_times)
+show_system = False #plot the system at each iteration
+
 #num_
 
 
@@ -107,7 +110,7 @@ class System_of_particles:
         for key in dimensions:
             self.velocities[key] = self.velocities[key] + (force[key] + current_force[key]) * h / (2)
             
-
+        #print(time)
         
         print(time)
         if any(np.isclose(time, renorm_time) for renorm_time in renorm_times): #time == h % 10
@@ -186,7 +189,7 @@ def Calculate_force(positions):
                 
                 r = ((delta_x) ** 2 + (delta_y) ** 2 + (delta_z) ** 2) ** 0.5
                 
-                Zangle = math.atan2(delta_z, r)
+                Zangle = math.asin(delta_z/r)
                 if r == 0:
                     print("Zero")
                 
@@ -194,9 +197,9 @@ def Calculate_force(positions):
 
                 force = - 24 * (2 * (1 / r) ** 13 - (1 / r) ** 7)
 
-                force_dict["x"][i] += force * math.cos(XYangle)
-                force_dict["y"][i] += force * math.sin(XYangle)
-                force_dict["z"][i] += force * math.sin(Zangle)
+                force_dict["x"][i] += force * delta_x/r  #math.cos(XYangle)
+                force_dict["y"][i] += force * delta_y/r  #math.sin(XYangle)
+                force_dict["z"][i] += force * delta_z/r  #math.sin(Zangle)
 
     return force_dict
 
@@ -239,6 +242,7 @@ def Calculate_kinetic(velocities):
     
     velocities = np.sqrt(velocities["x"] ** 2 + 
                          velocities["y"] ** 2 + velocities["z"] ** 2)
+   
     
     return  0.5 * np.sum(velocities**2)
 
@@ -302,8 +306,8 @@ def PrepareLattice():
         "z": np.array([np.sin(velocity_Zdirections[i]) * velocities[i] for i in range(N)])}
     
     #testing: 
-    #positions = {"x": np.array([0,1]),"y": np.array([1,1]), "z": np.array([1,1])}
-    #velocities = {"x": np.array([1,-1]),"y": np.array([0,0]), "z": np.array([0,0])}
+    #positions = {"y": np.array([2,2,2]),"x": np.array([1,1,1]), "z": np.array([1,3,2])}
+    #velocities = {"y": np.array([2,2,2]),"x": np.array([0,0,0]), "z": np.array([1,-1,0])}
     return positions, velocities
 
 def pair_correlation(system):
@@ -395,14 +399,11 @@ def main():
     for time in np.arange(0, t_end, h):
         Argon_system.Change_positions()
         
-        #Argon_system.system_plotter(f"Time: {time}")
+        if show_system:
+            Argon_system.system_plotter(f"Time: {time}")
 
         #calculate the potential and kinetic energy at each time step
-        potential_over_time.append(np.sum(Calculate_potential(Argon_system.positions)))
-        kinetic_over_time.append(Calculate_kinetic(Argon_system.velocities))
-        
-        velocities = np.sqrt(Argon_system.velocities["x"] ** 2 + Argon_system.velocities["y"] ** 2
-                             + Argon_system.velocities["z"]**2)
+
         #print(Lambda(velocities))
         
         '''
@@ -418,6 +419,12 @@ def main():
         positions_over_time.append(positions)
         velocities_over_time.append(velocities)
         
+        potential_over_time.append(np.sum(Calculate_potential(Argon_system.positions)))
+        kinetic_over_time.append(Calculate_kinetic(Argon_system.velocities))
+        
+        velocities = np.sqrt(Argon_system.velocities["x"] ** 2 + Argon_system.velocities["y"] ** 2
+                             + Argon_system.velocities["z"]**2)
+        
         
         
         
@@ -430,7 +437,7 @@ def main():
             plt.title('why?')
             ax.set_zlim(0, L)
             ax.quiver(
-                Argon_system.positions["x"],
+                Argon_system.positins["x"],
                 Argon_system.positions["y"],
                 Argon_system.positions["z"],
                 Argon_system.velocities["x"],
@@ -467,7 +474,8 @@ def main():
         plt.title("what is this?")
     plt.show()
     '''
-
+    total_energy = np.array(potential_over_time) + np.array(kinetic_over_time)
+    
     plt.figure()
     plt.plot(
         np.arange(0, t_end, h),
@@ -485,10 +493,9 @@ def main():
     
     
     plt.plot(
-        np.arange(0, t_end, h),
-        np.array(potential_over_time) + np.array(kinetic_over_time),
+        np.arange(0, t_end, h),total_energy,
         label="Total energy",
-        linestyle="--",
+        linestyle="-",
     )
     plt.legend()
     plt.xlabel('time (t tilde)')
@@ -753,7 +760,7 @@ def main():
     pressures = np.array([])
     for i in pressure_times:
          
-        pair_correlation_plot(positions[i])
+        #pair_correlation_plot(positions[i])
         
         #print('pressure is:',i,pressure(positions[i], 0.8))
         pressures = np.append(pressures,pressure(positions[i],0.8))
