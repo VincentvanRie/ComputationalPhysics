@@ -75,7 +75,7 @@ class System_of_particles:
                 force["z"] + current_force["z"]
             ) * h / (2)
 
-        if time == h % 10 and time < (50 * h) and False:
+        if np.isclose(time % (70 * h), 0) and time < (360 * h) and False:
             velocities = np.sqrt(self.velocities["x"] ** 2 + self.velocities["y"] ** 2)
             if z_dimension:
                 velocities = np.sqrt(
@@ -88,7 +88,7 @@ class System_of_particles:
             self.velocities["y"] = lambda_ * self.velocities["y"]
             if z_dimension:
                 self.velocities["z"] = lambda_ * self.velocities["z"]
-        print(self.velocities["y"])
+        # print(self.velocities["y"])
 
         # return self
 
@@ -229,7 +229,15 @@ def main():
     L = (N / rho) ** (1 / (3 if z_dimension else 2))
     h = 0.001  # 10**-15
 
-    timesteps = 100
+    # RESULTS
+    # h:  1e-05 std E:  0.02084042959680734
+    # h:  0.0001 std E:  0.2030039346393069
+    # h:  0.001 std E:  1.219628169331037
+    # h:  0.005 std E:  3.3129386609076796
+    # h:  0.01 std E:  7.015868578256411
+    # h:  0.1 std E:  1.2471145875743849e+36
+
+    timesteps = 1000
     t_end = timesteps * h
 
     velocities = np.array([random.normalvariate(0, 2 * T) for _ in range(N)])
@@ -291,15 +299,16 @@ def main():
     potential_over_time = []
     kinetic_over_time = []
 
-    fig = plt.figure(figsize=(9, 9))
-    if not z_dimension:
-        ax = fig.add_subplot(projection="3d")
-    else:
-        ax = fig.add_subplot()
+    # fig = plt.figure(figsize=(9, 9))
+    # if not z_dimension:
+    #     ax = fig.add_subplot(projection="3d")
+    # else:
+    #     ax = fig.add_subplot()
     # Set limits
 
     global time
     for time in np.arange(0, t_end, h):
+        print("Evolving to: ", time)
         Argon_system.Change_positions()
 
         potential_over_time.append(np.sum(Calculate_potential(Argon_system.positions)))
@@ -309,47 +318,47 @@ def main():
         velocities = copy.deepcopy(Argon_system.velocities)
         positions_over_time.append(positions)
         velocities_over_time.append(velocities)
-        ax.cla()
-        ax.set_title(f"Time: {time}")
-        ax.set_xlim(0, L)
-        ax.set_ylim(0, L)
-        if not z_dimension:
-            ax.set_zlim(0, L)
-            ax.quiver(
-                Argon_system.positions["x"],
-                Argon_system.positions["y"],
-                Argon_system.positions["z"],
-                Argon_system.velocities["x"],
-                Argon_system.velocities["y"],
-                Argon_system.velocities["z"],
-                length=0.1,
-            )
-        else:
-            plt.scatter(
-                Argon_system.positions["x"],
-                Argon_system.positions["y"],
-                # color=["red", "blue"],
-            )
-            ax.quiver(
-                Argon_system.positions["x"],
-                Argon_system.positions["y"],
-                Argon_system.forces["x"],
-                Argon_system.forces["y"],
-            )
-        plt.pause(0.000005)
+    #     ax.cla()
+    #     ax.set_title(f"Time: {time}")
+    #     ax.set_xlim(0, L)
+    #     ax.set_ylim(0, L)
+    #     if not z_dimension:
+    #         ax.set_zlim(0, L)
+    #         ax.quiver(
+    #             Argon_system.positions["x"],
+    #             Argon_system.positions["y"],
+    #             Argon_system.positions["z"],
+    #             Argon_system.velocities["x"],
+    #             Argon_system.velocities["y"],
+    #             Argon_system.velocities["z"],
+    #             length=0.1,
+    #         )
+    #     else:
+    #         plt.scatter(
+    #             Argon_system.positions["x"],
+    #             Argon_system.positions["y"],
+    #             # color=["red", "blue"],
+    #         )
+    #         ax.quiver(
+    #             Argon_system.positions["x"],
+    #             Argon_system.positions["y"],
+    #             Argon_system.forces["x"],
+    #             Argon_system.forces["y"],
+    #         )
+    #     plt.pause(0.000005)
 
-    plt.show()
-    plt.figure()
-    plt.xlim(0, L)
-    plt.ylim(0, L)
-    for i in range(N):
-        plt.plot(
-            [positions_over_time[j]["x"][i] for j in range(len(positions_over_time))],
-            [positions_over_time[j]["y"][i] for j in range(len(positions_over_time))],
-            color="blue",
-            alpha=0.5,
-        )
-    plt.show()
+    # plt.show()
+    # plt.figure()
+    # plt.xlim(0, L)
+    # plt.ylim(0, L)
+    # for i in range(N):
+    #     plt.plot(
+    #         [positions_over_time[j]["x"][i] for j in range(len(positions_over_time))],
+    #         [positions_over_time[j]["y"][i] for j in range(len(positions_over_time))],
+    #         color="blue",
+    #         alpha=0.5,
+    #     )
+    # plt.show()
 
     plt.figure()
     plt.plot(
@@ -368,8 +377,18 @@ def main():
         label="Total energy",
         linestyle="--",
     )
+    plt.title(
+        f"h: {h}; std E: {np.std(np.array(potential_over_time) + np.array(kinetic_over_time))}"
+    )
     plt.legend()
     plt.show()
+
+    print(
+        "h: ",
+        h,
+        "std E: ",
+        np.std(np.array(potential_over_time) + np.array(kinetic_over_time)),
+    )
 
     # for time in np.arange(h, t_end, h):
     #     print(time)
