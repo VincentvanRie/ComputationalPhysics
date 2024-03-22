@@ -13,8 +13,8 @@ In this part the data is analysed
 T = 1
 rho = 0.8
 
-positions = np.load(f"positions{T}_{rho}.npy", allow_pickle=True)
-velocities = np.load(f"velocities{T}_{rho}.npy", allow_pickle=True)
+positions = np.load(f"data/positions{T}_{rho}_long.npy", allow_pickle=True)
+velocities = np.load(f"data/velocities{T}_{rho}_long.npy", allow_pickle=True)
 
 iterations = len(positions) - 1
 num_pressures = 20  # number of times the pressure is measured
