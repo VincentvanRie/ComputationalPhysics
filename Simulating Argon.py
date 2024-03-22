@@ -6,35 +6,34 @@ from matplotlib.animation import FuncAnimation
 from functools import partial
 import numpy as np
 import copy
-import sys 
+import sys
 
 # class Box:
 #     def __init__(self, L, N):
 #         self.L = L
 #         self.N = N
 
-'''
+"""
 Natan verandert: N vervangen door len(positions["x"]) waar handig 
                  Functie descripties erbij gezet
                  def main() opgeschoond, lattice initialised met velocity in lattice functie
                  aparte functie inside the class gemaakt om te plotten
                  2D weggehaald
                  
-'''
+"""
 
 
-'''
+"""
 TO DO: 
     wat zijn de juiste waardes voor rescalig lambda?
     pressure and pair correlation in juiste waardes
     
-'''
+"""
 
-#TODO energy in terms of epsilon:
-    
-    
+# TODO energy in terms of epsilon:
 
-%matplotlib inline
+
+# %matplotlib inline
 
 
 z_dimension = True
@@ -43,50 +42,58 @@ m = 39.948 * 1.66053906660 * 10**-27
 epsilon = 119.8 * boltzmann
 sigma = 3.405 * 10**-10
 
-N = 108 #number of particles
-#N = 3
+N = 1372  # number of particles for big system
+N = 108  # number of particles
+sim_size = round((N / 4) ** (1 / 3))
 
-T = 3
-rho = 0.3
+perimeter_parameter = 1
+# parameter to determine how many radial cells to check for particles.
+# Where if equal to sim_size, all particles are checked
+
+T = 1.0
+rho = 0.8
 
 L = (N / rho) ** (1 / 3)
-#L = 3
-h = 0.01 # 10**-15
+# L = 3
+h = 0.01  # 10**-15
 
-timesteps = 2000 #number of iterations
+timesteps = 10  # number of iterations
 t_end = timesteps * h
 
-save_measurement = True #if this is true write the data to an external file for further analysis 
+save_measurement = (
+    False  # if this is true write the data to an external file for further analysis
+)
 
-#set the values for lambda renormalization
+# set the values for lambda renormalization
 frequency_rescale = 20
 number_of_rescales = 5
 
-renorm_times = np.arange(0,t_end,frequency_rescale*h) #at these times lambda renormalization is performed
+renorm_times = np.arange(
+    0, t_end, frequency_rescale * h
+)  # at these times lambda renormalization is performed
 renorm_times = renorm_times[:number_of_rescales]
-#print(renorm_times)
-show_system = False #plot the system at each iteration
+# print(renorm_times)
+show_system = True  # plot the system at each iteration
 
-#num_
+# num_
 
 
-#print(np.arange(0, t_end, h))
+# print(np.arange(0, t_end, h))
 
 
 class System_of_particles:
     def __init__(self, positions, velocities):
         self.positions = positions  # [[],[]],[],[]] # {"x": [2, 4, 13, 314 3, 234 2], "y": [[],[],[]]}
         self.velocities = velocities
-        self.forces = {"x": [], "y": [], "z":[]}
+        self.forces = {"x": [], "y": [], "z": []}
 
     def Change_positions(self):
-        '''
-        Function that updates the system to the next timestep. 
-        '''
-        previous_positions = {"x": np.zeros(N),"y": np.zeros(N),"z": np.zeros(N)}
+        """
+        Function that updates the system to the next timestep.
+        """
+        previous_positions = {"x": np.zeros(N), "y": np.zeros(N), "z": np.zeros(N)}
         dimensions = ["x", "y", "z"]
-        
-        
+
         for key in dimensions:
             previous_positions[key] = copy.deepcopy(self.positions[key])
             # self.previous_position = [self.particles[i]["position"] for i in range(len(self.particles))]
@@ -96,138 +103,250 @@ class System_of_particles:
 
         # current_force = [self.Calculate_force(self.particles[i]["position"]) for i in range(len(self.particles))]
 
-        for key in dimensions: 
-            self.positions[key] = (self.positions[key] + self.velocities[key] * h
-                + current_force[key] * h**2 / (2)) 
+        for key in dimensions:
+            self.positions[key] = (
+                self.positions[key]
+                + self.velocities[key] * h
+                + current_force[key] * h**2 / (2)
+            )
             self.positions[key] = self.positions[key] % L
-        
-        # self.positions = [self.particles[i]["position"] + self.particles[i]["velocity"] * h + current_force[i] * h**2 / (2*m) for i in range(len(self.particles))]
 
+        # self.positions = [self.particles[i]["position"] + self.particles[i]["velocity"] * h + current_force[i] * h**2 / (2*m) for i in range(len(self.particles))]
 
         # x(t) = self.previous_position
         force = Calculate_force(self.positions)
-        
+
         for key in dimensions:
-            self.velocities[key] = self.velocities[key] + (force[key] + current_force[key]) * h / (2)
-            
-        #print(time)
-        
+            self.velocities[key] = self.velocities[key] + (
+                force[key] + current_force[key]
+            ) * h / (2)
+
+        # print(time)
+
         print(time)
-        if any(np.isclose(time, renorm_time) for renorm_time in renorm_times): #time == h % 10
-            print('yeah i rescaled at time', time)
-            velocities = np.sqrt(self.velocities["x"] ** 2 + self.velocities["y"] ** 2
-                                 + self.velocities["z"]**2)
+        if any(
+            np.isclose(time, renorm_time) for renorm_time in renorm_times
+        ):  # time == h % 10
+            print("yeah i rescaled at time", time)
+            velocities = np.sqrt(
+                self.velocities["x"] ** 2
+                + self.velocities["y"] ** 2
+                + self.velocities["z"] ** 2
+            )
 
             lambda_ = Lambda(velocities)
             for key in dimensions:
                 self.velocities[key] = lambda_ * self.velocities[key]
-            #print(self.velocities["y"])
-        
+            # print(self.velocities["y"])
+
         # return self
-        
+
     def system_plotter(self, title):
-        '''
+        """
         Function to plot the current system. Input is the title for the plot
-        and the output is a plotted figure. 
-        '''
+        and the output is a plotted figure.
+        """
         positions = self.positions
         velocities = self.velocities
-        #forces = self.forces
-        
+        # forces = self.forces
+
         if plt.fignum_exists(1):
             fig = plt.figure(1)
             fig.clf()
         else:
             fig = plt.figure(1)
-        ax = fig.add_subplot(111, projection='3d')
-        ax.scatter(positions['x'], positions['y'], positions['z'], c='b', marker='o', s=5, alpha=0.7) #, label='FCC lattice'
-        plt.quiver(positions["x"], positions["y"],positions["z"],
-                   velocities["x"], velocities["y"],velocities["z"], length = 0.5, normalize = True,color = 'red') 
+        ax = fig.add_subplot(111, projection="3d")
+        ax.scatter(
+            positions["x"],
+            positions["y"],
+            positions["z"],
+            c="b",
+            marker="o",
+            s=5,
+            alpha=0.7,
+        )  # , label='FCC lattice'
+        plt.quiver(
+            positions["x"],
+            positions["y"],
+            positions["z"],
+            velocities["x"],
+            velocities["y"],
+            velocities["z"],
+            length=0.5,
+            normalize=True,
+            color="red",
+        )
         # Set labels and title for the plot
-        ax.set_xlabel('X')
-        ax.set_ylabel('Y')
-        ax.set_zlabel('Z')
-        ax.set_title('FCC Lattice')
-        
+        ax.set_xlabel("X")
+        ax.set_ylabel("Y")
+        ax.set_zlabel("Z")
+        ax.set_title("FCC Lattice")
+
         ax.set_xlim(0, L)
         ax.set_ylim(0, L)
         ax.set_zlim(0, L)
-        
+
         plt.title(title)
-    
-        
+
         # Add legend and grid to the plot
         # ax.legend()
-        ax.grid(True, linestyle='dotted', linewidth=0.5, alpha=0.5)
-    
+        ax.grid(True, linestyle="dotted", linewidth=0.5, alpha=0.5)
+
         # Display the plot
-        #plt.show()            
+        # plt.show()
         plt.pause(0.0001)
-        #plt.close()
+        # plt.close()
+
 
 def Calculate_force(positions):
-    
-    '''
+    """
     This function calculates the force that each particle experiences
-    
-    input: dictionary with x,y,z positions {x: ... y: ... z:...}
-    output: dictionary with the forces in the x,y,z direction of 
-            each particle {x: ... y: ... z:...}
-    
-    '''
-    
-    force_dict = {"x": np.zeros(N),"y": np.zeros(N),"z": np.zeros(N)}
 
-    for i in range(N): #i = p1, j = p2
+    input: dictionary with x,y,z positions {x: ... y: ... z:...}
+    output: dictionary with the forces in the x,y,z direction of
+            each particle {x: ... y: ... z:...}
+
+    """
+
+    number_of_cells = round(L + 0.5)
+    cells_with_particles = np.full(
+        (number_of_cells, number_of_cells, number_of_cells), False, dtype=object
+    )
+
+    particles_with_cell_index = [[] for _ in range(N)]
+
+    for i in range(N):
+        x = int(positions["x"][i] // (L / number_of_cells))
+        y = int(positions["y"][i] // (L / number_of_cells))
+        z = int(positions["z"][i] // (L / number_of_cells))
+
+        # Save the cell index of the particle
+        particles_with_cell_index[i] = [x, y, z]
+
+        # And save the particle index in the cell
+        if not cells_with_particles[
+            x, y, z
+        ]:  # if the cell is empty add the particle index to the cell
+            cells_with_particles[x, y, z] = [i]
+        else:  # if the cell is not empty append the particle index to the list
+            cells_with_particles[x, y, z].append(i)
+
+    force_dict = {"x": np.zeros(N), "y": np.zeros(N), "z": np.zeros(N)}
+
+    for i in range(N):  # i = p1, j = p2
         # cell_particle_i
-        for j in range(N):
+        x_cell_i, y_cell_i, z_cell_i = particles_with_cell_index[i]
+
+        perimeter_parameter = 1
+
+        nearby_particles = []
+        for n in range(-perimeter_parameter, perimeter_parameter + 1):
+            for j in range(-perimeter_parameter, perimeter_parameter + 1):
+                for k in range(-perimeter_parameter, perimeter_parameter + 1):
+                    if cells_with_particles[
+                        (x_cell_i + n) % number_of_cells,
+                        (y_cell_i + j) % number_of_cells,
+                        (z_cell_i + k) % number_of_cells,
+                    ]:
+                        for particle in cells_with_particles[
+                            (x_cell_i + n) % number_of_cells,
+                            (y_cell_i + j) % number_of_cells,
+                            (z_cell_i + k) % number_of_cells,
+                        ]:
+                            nearby_particles.append(particle)
+
+        for j in nearby_particles:
             # cell_particle_j
             if i != j:  # and cell_particle_i = cell_particle_j:
                 delta_x = (positions["x"][j] - positions["x"][i] + L / 2) % L - L / 2
                 delta_y = (positions["y"][j] - positions["y"][i] + L / 2) % L - L / 2
                 delta_z = (positions["z"][j] - positions["z"][i] + L / 2) % L - L / 2
-                
+
                 r = ((delta_x) ** 2 + (delta_y) ** 2 + (delta_z) ** 2) ** 0.5
-                
-                Zangle = math.asin(delta_z/r)
+
+                Zangle = math.asin(delta_z / r)
                 if r == 0:
                     print("Zero")
-                
+
                 XYangle = math.atan2(delta_y, delta_x)
 
-                force = - 24 * (2 * (1 / r) ** 13 - (1 / r) ** 7)
+                force = -24 * (2 * (1 / r) ** 13 - (1 / r) ** 7)
 
-                force_dict["x"][i] += force * delta_x/r  #math.cos(XYangle)
-                force_dict["y"][i] += force * delta_y/r  #math.sin(XYangle)
-                force_dict["z"][i] += force * delta_z/r  #math.sin(Zangle)
+                force_dict["x"][i] += force * delta_x / r  # math.cos(XYangle)
+                force_dict["y"][i] += force * delta_y / r  # math.sin(XYangle)
+                force_dict["z"][i] += force * delta_z / r  # math.sin(Zangle)
 
     return force_dict
 
 
 def Calculate_potential(positions):
-    '''
+    """
     input: Dictionary with x,y,z positions {x: ... y: ... z:...}
-    This function calcuates the potential between all the particles 
-    outptu: Array with the potential energy of every particle  
-    '''
+    This function calcuates the potential between all the particles
+    outptu: Array with the potential energy of every particle
+    """
 
     potential_list = []
-    
-    N = len(positions["x"]) 
+
+    N = len(positions["x"])
+
+    number_of_cells = round(L + 0.5)
+    cells_with_particles = np.full(
+        (number_of_cells, number_of_cells, number_of_cells), False, dtype=object
+    )
+
+    particles_with_cell_index = [[] for _ in range(N)]
 
     for i in range(N):
+        x = int(positions["x"][i] // (L / number_of_cells))
+        y = int(positions["y"][i] // (L / number_of_cells))
+        z = int(positions["z"][i] // (L / number_of_cells))
+
+        # Save the cell index of the particle
+        particles_with_cell_index[i] = [x, y, z]
+
+        # And save the particle index in the cell
+        if not cells_with_particles[
+            x, y, z
+        ]:  # if the cell is empty add the particle index to the cell
+            cells_with_particles[x, y, z] = [i]
+        else:  # if the cell is not empty append the particle index to the list
+            cells_with_particles[x, y, z].append(i)
+
+    force_dict = {"x": np.zeros(N), "y": np.zeros(N), "z": np.zeros(N)}
+
+    for i in range(N):  # i = p1, j = p2
         # cell_particle_i
+        x_cell_i, y_cell_i, z_cell_i = particles_with_cell_index[i]
+
+        nearby_particles = []
+        for n in range(-perimeter_parameter, perimeter_parameter + 1):
+            for j in range(-perimeter_parameter, perimeter_parameter + 1):
+                for k in range(-perimeter_parameter, perimeter_parameter + 1):
+                    if cells_with_particles[
+                        (x_cell_i + n) % number_of_cells,
+                        (y_cell_i + j) % number_of_cells,
+                        (z_cell_i + k) % number_of_cells,
+                    ]:
+                        for particle in cells_with_particles[
+                            (x_cell_i + n) % number_of_cells,
+                            (y_cell_i + j) % number_of_cells,
+                            (z_cell_i + k) % number_of_cells,
+                        ]:
+                            if particle > i:
+                                nearby_particles.append(particle)
+
         potential = 0
 
-        for j in range(i + 1, N):
+        for j in nearby_particles:
             # cell_particle_j
             r = two_part_distance(i, j, positions)
-            #print(r)
+            # print(r)
             if np.isclose(r, 0):
                 print("Zero")
 
-            potential += 4  * ((1 / r) ** 12 - (1 / r) ** 6)
-            #print(potential)
+            potential += 4 * ((1 / r) ** 12 - (1 / r) ** 6)
+            # print(potential)
 
         potential_list.append(potential)
 
@@ -235,24 +354,23 @@ def Calculate_potential(positions):
 
 
 def Calculate_kinetic(velocities):
-    '''
+    """
     input: Dictionary with x,y,z velocities {x: ... y: ... z:...} of every particle
     This function calcuates the kinetic energy
     outptu: Total kinetic energy of the sytem
-    '''
-    
-    
-    velocities = np.sqrt(velocities["x"] ** 2 + 
-                         velocities["y"] ** 2 + velocities["z"] ** 2)
-   
-    
-    return  0.5 * np.sum(velocities**2)
+    """
+
+    velocities = np.sqrt(
+        velocities["x"] ** 2 + velocities["y"] ** 2 + velocities["z"] ** 2
+    )
+
+    return 0.5 * np.sum(velocities**2)
 
 
 def Lambda(velocities):
-    '''
+    """
     Rescalement factor to get the correct equilibrium
-    '''
+    """
     # print("target velocity: " + str(np.sqrt((3 * boltzmann * T) / (epsilon))))
 
     return np.sqrt(
@@ -260,13 +378,51 @@ def Lambda(velocities):
     )  # np.sqrt((3 * (N - 1) * boltzmann * T) / (np.sum(velocities**2) * m))
 
 
+def PrepareLatticeBlock():
+    x = np.array([0, 0, 1 / 2, 1 / 2])
+    y = np.array([0, 1 / 2, 0, 1 / 2])
+    z = np.array([0, 1 / 2, 1 / 2, 0])
+
+    positions = {"x": x, "y": y, "z": z}
+
+    return positions
+
+
 def PrepareLattice():
-    '''
+    """
     Function to set the lattice positions and velocities of the particles
-    output: dictionary with particle positions {"x": ..., "y": ..., "z": ...}, 
+    output: dictionary with particle positions {"x": ..., "y": ..., "z": ...},
             dictionary with particle velocities {"x": ..., "y": ..., "z": ...}
-    '''
-    
+    """
+
+    positions = {"x": [], "y": [], "z": []}
+
+    for k in range(sim_size):
+        for j in range(sim_size):
+            for i in range(sim_size):
+                positions["x"] = np.concatenate(
+                    (
+                        positions["x"],
+                        PrepareLatticeBlock()["x"] + i,
+                    )
+                )
+                positions["y"] = np.concatenate(
+                    (
+                        positions["y"],
+                        PrepareLatticeBlock()["y"] + j,
+                    )
+                )
+                positions["z"] = np.concatenate(
+                    (
+                        positions["z"],
+                        PrepareLatticeBlock()["z"] + k,
+                    )
+                )
+
+    for key in positions:
+        positions[key] = positions[key] * L / sim_size
+
+    """
     # Define lattice positions in 3D
     x1 = np.array([0, 1 / 3 * L, 2 / 3 * L] * 9)
     y1 = np.array(([0] * 3 + [1 / 3 * L] * 3 + [2 / 3 * L] * 3) * 3)
@@ -289,148 +445,169 @@ def PrepareLattice():
     x = np.concatenate((x1, x2, x3, x4))
     y = np.concatenate((y1, y2, y3, y4))
     z = np.concatenate((z1, z2, z3, z4))
-    
-    positions = {"x": x,"y": y,"z": z}
+
+    positions = {"x": x, "y": y, "z": z}
+    """
 
     # Initialize velocities
 
-    velocities = np.array([random.normalvariate(0, 2 * T) for _ in range(N)]) #TODO is dit goed??
-    velocities = np.random.normal(0, T,N)
+    velocities = np.array(
+        [random.normalvariate(0, 2 * T) for _ in range(N)]
+    )  # TODO is dit goed??
+    velocities = np.random.normal(0, T, N)
     velocities = Lambda(velocities) * velocities
 
     velocity_XYdirections = np.array([random.uniform(-np.pi, np.pi) for _ in range(N)])
     velocity_Zdirections = np.array([random.uniform(0, np.pi) for _ in range(N)])
-    
+
     # Compute 3D velocities
     velocities = {
-        "x": np.array([np.cos(velocity_XYdirections[i]) * np.cos(velocity_Zdirections[i]) * velocities[i] for i in range(N)]),
-        "y": np.array([np.sin(velocity_XYdirections[i]) * np.cos(velocity_Zdirections[i]) * velocities[i] for i in range(N)]),
-        "z": np.array([np.sin(velocity_Zdirections[i]) * velocities[i] for i in range(N)])}
-    
-    #testing: 
-    #positions = {"y": np.array([2,2,2]),"x": np.array([1,1,1]), "z": np.array([1,3,2])}
-    #velocities = {"y": np.array([2,2,2]),"x": np.array([0,0,0]), "z": np.array([1,-1,0])}
+        "x": np.array(
+            [
+                np.cos(velocity_XYdirections[i])
+                * np.cos(velocity_Zdirections[i])
+                * velocities[i]
+                for i in range(N)
+            ]
+        ),
+        "y": np.array(
+            [
+                np.sin(velocity_XYdirections[i])
+                * np.cos(velocity_Zdirections[i])
+                * velocities[i]
+                for i in range(N)
+            ]
+        ),
+        "z": np.array(
+            [np.sin(velocity_Zdirections[i]) * velocities[i] for i in range(N)]
+        ),
+    }
+
+    # testing:
+    # positions = {"y": np.array([2,2,2]),"x": np.array([1,1,1]), "z": np.array([1,3,2])}
+    # velocities = {"y": np.array([2,2,2]),"x": np.array([0,0,0]), "z": np.array([1,-1,0])}
     return positions, velocities
 
+
 def pair_correlation(system):
-    '''
+    """
     input: position dictionary
-    '''
+    """
     positions = system.positions
-    
+
     particle_distances = np.array([])
-    
+
     for i in range(N):
         for j in range(i + 1, N):
             r = two_part_distance(i, j, positions)
-                
-            particle_distances = np.append(particle_distances,r)
-            
-            
-            
+
+            particle_distances = np.append(particle_distances, r)
+
     y = len(particle_distances)
-    #print(particle_distances)
-    
-    #plt.scatter(np.arange(y),particle_distances)
-    
+    # print(particle_distances)
+
+    # plt.scatter(np.arange(y),particle_distances)
+
     bin_size = 0.1
-    plt.hist(particle_distances,np.arange(0,L,bin_size))
-     
-    
+    plt.hist(particle_distances, np.arange(0, L, bin_size))
+
     plt.show()
-    
-def pressure(system,rho):
-    positions  = system.positions
-    
+
+
+def pressure(system, rho):
+    positions = system.positions
+
     potentials = np.array([])
-    
+
     for i in range(N):
         for j in range(i + 1, N):
             r = two_part_distance(i, j, positions)
-            
-            potential_der = 2 * (-24*(1 / r) ** 13 + 12* (1 / r) ** 7)
-            #print(potential_der)
-            
-            potentials = np.append(potentials,r*potential_der)
+
+            potential_der = 2 * (-24 * (1 / r) ** 13 + 12 * (1 / r) ** 7)
+            # print(potential_der)
+
+            potentials = np.append(potentials, r * potential_der)
     expec_value = np.mean(potentials)
-    pressure = epsilon*rho*(1 - 1/(3*len(positions["x"])*epsilon)*expec_value) #TODO something wrong with dimensionless units?
-    
+    pressure = (
+        epsilon * rho * (1 - 1 / (3 * len(positions["x"]) * epsilon) * expec_value)
+    )  # TODO something wrong with dimensionless units?
+
     return pressure
 
 
-def two_part_distance(p1,p2,positions):
-    '''
-    Take the position dictionary and 2 particles 
+def two_part_distance(p1, p2, positions):
+    """
+    Take the position dictionary and 2 particles
     as input and return the distance between p1 and p1
-    
-    '''
+
+    """
 
     delta_x = (positions["x"][p2] - positions["x"][p1] + L / 2) % L - L / 2
     delta_y = (positions["y"][p2] - positions["y"][p1] + L / 2) % L - L / 2
     delta_z = (positions["z"][p2] - positions["z"][p1] + L / 2) % L - L / 2
     r = ((delta_x) ** 2 + (delta_y) ** 2 + (delta_z) ** 2) ** 0.5
-    
+
     return r
 
 
 def main():
-
-    #prepare the initial state of the lattice
+    # prepare the initial state of the lattice
     lattice_positions = PrepareLattice()[0]
     lattice_velocities = PrepareLattice()[1]
 
     Argon_system = System_of_particles(
-        positions=lattice_positions,velocities = lattice_velocities)
+        positions=lattice_positions, velocities=lattice_velocities
+    )
 
     positions_over_time = [Argon_system.positions]
     velocities_over_time = [Argon_system.velocities]
 
     potential_over_time = []
     kinetic_over_time = []
-    '''
+    """
     fig = plt.figure(figsize=(9, 9))
     if not z_dimension:
         ax = fig.add_subplot(projection="3d")
     else:
         ax = fig.add_subplot()
     # Set limits
-    '''
+    """
 
-    #start the cycle of simulations
+    # start the cycle of simulations
     global time
     for time in np.arange(0, t_end, h):
         Argon_system.Change_positions()
-        
+
         if show_system:
             Argon_system.system_plotter(f"Time: {time}")
 
-        #calculate the potential and kinetic energy at each time step
+        # calculate the potential and kinetic energy at each time step
 
-        #print(Lambda(velocities))
-        
-        '''
+        # print(Lambda(velocities))
+
+        """
         # quite programm if explotion occured 
         if np.sum(Calculate_potential(Argon_system.positions) + 
                   Calculate_kinetic(Argon_system.velocities)) > 10**10:
             print("Explotion")
             sys.exit()
-        '''    
-        
+        """
+
         positions = copy.deepcopy(Argon_system.positions)
         velocities = copy.deepcopy(Argon_system.velocities)
         positions_over_time.append(positions)
         velocities_over_time.append(velocities)
-        
+
         potential_over_time.append(np.sum(Calculate_potential(Argon_system.positions)))
         kinetic_over_time.append(Calculate_kinetic(Argon_system.velocities))
-        
-        velocities = np.sqrt(Argon_system.velocities["x"] ** 2 + Argon_system.velocities["y"] ** 2
-                             + Argon_system.velocities["z"]**2)
-        
-        
-        
-        
-        '''
+
+        velocities = np.sqrt(
+            Argon_system.velocities["x"] ** 2
+            + Argon_system.velocities["y"] ** 2
+            + Argon_system.velocities["z"] ** 2
+        )
+
+        """
         ax.cla()
         ax.set_title(f"Time: {time}")
         ax.set_xlim(0, L)
@@ -475,9 +652,9 @@ def main():
         )
         plt.title("what is this?")
     plt.show()
-    '''
+    """
     total_energy = np.array(potential_over_time) + np.array(kinetic_over_time)
-    
+
     plt.figure()
     plt.plot(
         np.arange(0, t_end, h),
@@ -489,27 +666,27 @@ def main():
         kinetic_over_time,
         label="Kinetic energy",
     )
-    #plot the equilibrium energy: 
-    E_target = (N-1)*3/2*T
-    plt.hlines(E_target,0,t_end,label='equilibrium energy',color = 'purple')
-    
-    
+    # plot the equilibrium energy:
+    E_target = (N - 1) * 3 / 2 * T
+    plt.hlines(E_target, 0, t_end, label="equilibrium energy", color="purple")
+
     plt.plot(
-        np.arange(0, t_end, h),total_energy,
+        np.arange(0, t_end, h),
+        total_energy,
         label="Total energy",
         linestyle="-",
     )
+    plt.ylabel("Energy (\u03B5)")
+    plt.title(f"Energies during the simulation with rho = {rho} and T = {T}")
+    plt.xlabel(r"Time [$\left(m \sigma^2/\epsilon\right)^{-\frac{1}{2}}]$")
     plt.legend()
-    plt.xlabel('time (t tilde)')
-    plt.ylabel('energy (\u03B5)')
-    plt.title(f'Energies during the simulation with rho = {rho} and T = {T}')
+    plt.savefig("solid_energies.pdf", dpi=1200)
     plt.show()
-    
+
     # save the data for further analysis
     if save_measurement:
-        np.save(f'positions{T}_{rho}_long',np.array(positions_over_time))
-        np.save(f'velocities{T}_{rho}_long',np.array(velocities_over_time))
-    
+        np.save(f"positions{T}_{rho}_long", np.array(positions_over_time))
+        np.save(f"velocities{T}_{rho}_long", np.array(velocities_over_time))
 
     # for time in np.arange(h, t_end, h):
     #     print(time)
@@ -561,4 +738,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-    
