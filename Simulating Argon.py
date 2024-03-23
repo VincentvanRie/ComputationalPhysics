@@ -255,12 +255,14 @@ def Calculate_force(positions):
 
 def Calculate_potential(positions):
     """
+    This function calculates the potential energy of given positions
+
     First the function creates a grid of cells and assigns each particle to a cell.
     and assigns each cell a list of particles that are in the cell.
 
     input: Dictionary with x,y,z positions {x: ... y: ... z:...}
     This function calcuates the potential between all the particles
-    outptu: Array with the potential energy of every particle
+    output: Array with the potential energy of every particle
     """
 
     potential_list = []
@@ -329,9 +331,11 @@ def Calculate_potential(positions):
 
 def Calculate_kinetic(velocities):
     """
+    This function calculates the kinetic energy given the velocities.
+
     input: Dictionary with x,y,z velocities {x: ... y: ... z:...} of every particle
     This function calcuates the kinetic energy
-    outptu: Total kinetic energy of the sytem
+    output: Total kinetic energy of the sytem
     """
 
     velocities = np.sqrt(
@@ -350,6 +354,11 @@ def Lambda(velocities):
 
 
 def PrepareLatticeBlock():
+    """
+    Function to set the lattice positions of the particles in a unit block
+
+    output: dictionary with particle positions {"x": ..., "y": ..., "z": ...}
+    """
     x = np.array([0, 0, 1 / 2, 1 / 2])
     y = np.array([0, 1 / 2, 0, 1 / 2])
     z = np.array([0, 1 / 2, 1 / 2, 0])
@@ -362,6 +371,7 @@ def PrepareLatticeBlock():
 def PrepareLattice():
     """
     Function to set the lattice positions and velocities of the particles
+
     output: dictionary with particle positions {"x": ..., "y": ..., "z": ...},
             dictionary with particle velocities {"x": ..., "y": ..., "z": ...}
     """
@@ -426,31 +436,13 @@ def PrepareLattice():
     return positions, velocities
 
 
-def pair_correlation(system):
-    """
-    input: position dictionary
-    """
-    positions = system.positions
-
-    particle_distances = np.array([])
-
-    for i in range(N):
-        for j in range(i + 1, N):
-            r = two_part_distance(i, j, positions)
-
-            particle_distances = np.append(particle_distances, r)
-
-    bin_size = 0.1
-    plt.hist(particle_distances, np.arange(0, L, bin_size))
-
-    plt.show()
-
-
 def two_part_distance(p1, p2, positions):
     """
     Take the position dictionary and 2 particles
     as input and return the distance between p1 and p1
 
+    input: position dictionary and 2 particles
+    output: distance between p1 and p2
     """
 
     delta_x = (positions["x"][p2] - positions["x"][p1] + L / 2) % L - L / 2
