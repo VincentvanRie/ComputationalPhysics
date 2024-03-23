@@ -1,3 +1,22 @@
+"""
+Molecular Dynamics Simulation of Argon
+
+This script simulates the molecular dynamics of Argon atoms in a 3D box.
+The atoms are placed in a face-centered cubic (FCC) lattice and are given random velocities.
+The system is evolved in time using the Verlet algorithm. The system is periodic in all directions.
+The Lennard-Jones potential is used to calculate the forces between the particles.
+
+The script calculates the potential, kinetic, and total energy of the system at each time step.
+
+
+Authors:
+- Natan van Steenis
+- Vincent van Rie
+
+Date: 22/03/2024
+
+"""
+
 import random
 import matplotlib.pyplot as plt
 import numpy as np
