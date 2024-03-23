@@ -3,7 +3,7 @@
 ## Start-up
 
  - Clone this repo in your desired directory
- - Go to Simulating Argon.py
+ - Go to "Simulating Argon.py"
  - Set the desired parameters at the top of the file
    - Set the density and temperature
    - Set the number of particles (only works for N = 4 * n^3; n an integer)
