@@ -28,16 +28,18 @@ Set parameters for the simulation
 """
 
 """Main parameters for the simulation"""
-T = 1.0
+T = 3.0
 rho = 0.8
 
 """Additional parameters for the simulation"""
 N = 1372  # number of particles for big system
 N = 108  # number of particles for small system
 
+# Toggle whether to use the efficiency algorithm
+use_efficiency = False
 # parameter to determine how many radial cells to check for particles.
-# Where if equal to sim_size, all particles are checked
-perimeter_parameter = 2
+# Where if equal to half the sim_size ((N/4)^(1/3)), all particles are checked
+perimeter_parameter = 3
 
 # number of iterations
 timesteps = 100
@@ -56,6 +58,7 @@ h = 0.01
 
 t_end = timesteps * h
 
+# calculate the size of the simulation box
 sim_size = round((N / 4) ** (1 / 3))
 L = (N / rho) ** (1 / 3)
 
@@ -184,53 +187,56 @@ def Calculate_force(positions):
 
     """
 
-    # Initialize the size of cells to be about 1 sigma
-    number_of_cells = round(L + 0.5)
-    cells_with_particles = np.full(
-        (number_of_cells, number_of_cells, number_of_cells), False, dtype=object
-    )
+    if use_efficiency:
+        # Initialize the size of cells to be about 1 sigma
+        number_of_cells = round(L + 0.5)
+        cells_with_particles = np.full(
+            (number_of_cells, number_of_cells, number_of_cells), False, dtype=object
+        )
 
-    particles_with_cell_index = [[] for _ in range(N)]
+        particles_with_cell_index = [[] for _ in range(N)]
 
-    for i in range(N):
-        x = int(positions["x"][i] // (L / number_of_cells))
-        y = int(positions["y"][i] // (L / number_of_cells))
-        z = int(positions["z"][i] // (L / number_of_cells))
+        for i in range(N):
+            x = int(positions["x"][i] // (L / number_of_cells))
+            y = int(positions["y"][i] // (L / number_of_cells))
+            z = int(positions["z"][i] // (L / number_of_cells))
 
-        # Save the cell coordinates of the particle
-        particles_with_cell_index[i] = [x, y, z]
+            # Save the cell coordinates of the particle
+            particles_with_cell_index[i] = [x, y, z]
 
-        # And save the particle index in the cell
-        if not cells_with_particles[
-            x, y, z
-        ]:  # if the cell is empty add the particle index to the cell
-            cells_with_particles[x, y, z] = [i]
-        else:  # if the cell is not empty append the particle index to the list
-            cells_with_particles[x, y, z].append(i)
+            # And save the particle index in the cell
+            if not cells_with_particles[
+                x, y, z
+            ]:  # if the cell is empty add the particle index to the cell
+                cells_with_particles[x, y, z] = [i]
+            else:  # if the cell is not empty append the particle index to the list
+                cells_with_particles[x, y, z].append(i)
 
     force_dict = {"x": np.zeros(N), "y": np.zeros(N), "z": np.zeros(N)}
 
     for i in range(N):  # i = particle 1, j = particle 2
-        x_cell_i, y_cell_i, z_cell_i = particles_with_cell_index[i]
+        if use_efficiency:
+            x_cell_i, y_cell_i, z_cell_i = particles_with_cell_index[i]
 
-        perimeter_parameter = 1
-
-        # Retrieve all particles in the perimeter of the cell of particle i
-        nearby_particles = []
-        for n in range(-perimeter_parameter, perimeter_parameter + 1):
-            for j in range(-perimeter_parameter, perimeter_parameter + 1):
-                for k in range(-perimeter_parameter, perimeter_parameter + 1):
-                    if cells_with_particles[
-                        (x_cell_i + n) % number_of_cells,
-                        (y_cell_i + j) % number_of_cells,
-                        (z_cell_i + k) % number_of_cells,
-                    ]:
-                        for particle in cells_with_particles[
+            # Retrieve all particles in the perimeter of the cell of particle i
+            nearby_particles = []
+            for n in range(-perimeter_parameter, perimeter_parameter + 1):
+                for j in range(-perimeter_parameter, perimeter_parameter + 1):
+                    for k in range(-perimeter_parameter, perimeter_parameter + 1):
+                        if cells_with_particles[
                             (x_cell_i + n) % number_of_cells,
                             (y_cell_i + j) % number_of_cells,
                             (z_cell_i + k) % number_of_cells,
                         ]:
-                            nearby_particles.append(particle)
+                            for particle in cells_with_particles[
+                                (x_cell_i + n) % number_of_cells,
+                                (y_cell_i + j) % number_of_cells,
+                                (z_cell_i + k) % number_of_cells,
+                            ]:
+                                if particle not in nearby_particles:
+                                    nearby_particles.append(particle)
+        else:
+            nearby_particles = range(N)
 
         for j in nearby_particles:
             # cell_particle_j
@@ -269,50 +275,55 @@ def Calculate_potential(positions):
 
     N = len(positions["x"])
 
-    # Initialize the size of cells to be about 1 sigma
-    number_of_cells = round(L + 0.5)
-    cells_with_particles = np.full(
-        (number_of_cells, number_of_cells, number_of_cells), False, dtype=object
-    )
+    if use_efficiency:
+        # Initialize the size of cells to be about 1 sigma
+        number_of_cells = round(L + 0.5)
+        cells_with_particles = np.full(
+            (number_of_cells, number_of_cells, number_of_cells), False, dtype=object
+        )
 
-    particles_with_cell_index = [[] for _ in range(N)]
+        particles_with_cell_index = [[] for _ in range(N)]
 
-    for i in range(N):
-        x = int(positions["x"][i] // (L / number_of_cells))
-        y = int(positions["y"][i] // (L / number_of_cells))
-        z = int(positions["z"][i] // (L / number_of_cells))
+        for i in range(N):
+            x = int(positions["x"][i] // (L / number_of_cells))
+            y = int(positions["y"][i] // (L / number_of_cells))
+            z = int(positions["z"][i] // (L / number_of_cells))
 
-        # Save the cell coordinates of the particle
-        particles_with_cell_index[i] = [x, y, z]
+            # Save the cell coordinates of the particle
+            particles_with_cell_index[i] = [x, y, z]
 
-        # And save the particle index in the cell
-        if not cells_with_particles[
-            x, y, z
-        ]:  # if the cell is empty add the particle index to the cell
-            cells_with_particles[x, y, z] = [i]
-        else:  # if the cell is not empty append the particle index to the list
-            cells_with_particles[x, y, z].append(i)
+            # And save the particle index in the cell
+            if not cells_with_particles[
+                x, y, z
+            ]:  # if the cell is empty add the particle index to the cell
+                cells_with_particles[x, y, z] = [i]
+            else:  # if the cell is not empty append the particle index to the list
+                cells_with_particles[x, y, z].append(i)
 
     for i in range(N):  # i = particle 1, j = particle 2
-        x_cell_i, y_cell_i, z_cell_i = particles_with_cell_index[i]
+        if use_efficiency:
+            x_cell_i, y_cell_i, z_cell_i = particles_with_cell_index[i]
 
-        # Retrieve all particles in the perimeter of the cell of particle i
-        nearby_particles = []
-        for n in range(-perimeter_parameter, perimeter_parameter + 1):
-            for j in range(-perimeter_parameter, perimeter_parameter + 1):
-                for k in range(-perimeter_parameter, perimeter_parameter + 1):
-                    if cells_with_particles[
-                        (x_cell_i + n) % number_of_cells,
-                        (y_cell_i + j) % number_of_cells,
-                        (z_cell_i + k) % number_of_cells,
-                    ]:
-                        for particle in cells_with_particles[
+            # Retrieve all particles in the perimeter of the cell of particle i
+            nearby_particles = []
+            for n in range(-perimeter_parameter, perimeter_parameter + 1):
+                for j in range(-perimeter_parameter, perimeter_parameter + 1):
+                    for k in range(-perimeter_parameter, perimeter_parameter + 1):
+                        if cells_with_particles[
                             (x_cell_i + n) % number_of_cells,
                             (y_cell_i + j) % number_of_cells,
                             (z_cell_i + k) % number_of_cells,
                         ]:
-                            if particle > i:
-                                nearby_particles.append(particle)
+                            for particle in cells_with_particles[
+                                (x_cell_i + n) % number_of_cells,
+                                (y_cell_i + j) % number_of_cells,
+                                (z_cell_i + k) % number_of_cells,
+                            ]:
+                                if particle > i and particle not in nearby_particles:
+                                    nearby_particles.append(particle)
+
+        else:
+            nearby_particles = range(i + 1, N)
 
         potential = 0
 
