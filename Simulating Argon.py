@@ -38,7 +38,7 @@ N = 108  # number of particles for small system
 # Toggle whether to use the efficiency algorithm
 use_efficiency = False
 # parameter to determine how many radial cells to check for particles.
-# Where if equal to half the sim_size ((N/4)^(1/3)), all particles are checked
+# Where if equal to half the simulation size ((N / rho) ** (1 / 3)), all particles are checked
 perimeter_parameter = 3
 
 # number of iterations
